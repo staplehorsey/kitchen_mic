@@ -1,0 +1,221 @@
+# Kitchen Mic Test Plan
+# Date: 2024-12-08
+# Focus: Decompose working VAD test into reusable components
+
+## Progress Update (2024-12-08 14:01)
+
+### 
+1. Created base visualization framework
+   - Dark theme and standard controls
+   - Animation and cleanup handling
+   - Thread-safe data management
+
+2. Implemented audio visualization
+   - Real-time waveform display
+   - Time-synchronized x-axis
+   - Working test script with audio generation
+
+3. Moved audio utilities
+   - AudioPlayer in src/audio/player.py
+   - TimeRange and utils in src/audio/utils.py
+
+### 
+1. VAD visualization
+   - Need to port existing VAD display
+   - Reuse time handling from audio viz
+   - Update test_vad.py to use new components
+
+2. Conversation visualization
+   - Design conversation state display
+   - Integrate with VAD visualization
+   - Add playback indicators
+
+### 
+
+1. Create src/visualization/vad.py
+   - Port VADVisualizer from test_vad.py
+   - Use BaseVisualizer as parent
+   - Keep working probability display
+
+2. Update test_vad.py
+   - Use new VADVisualizer
+   - Keep existing capture and processor setup
+   - Maintain callback patterns
+
+3. Create src/visualization/conversation.py
+   - Build on VAD visualization
+   - Add conversation state tracking
+   - Show playback status
+
+4. Create debug/test_conversation.py
+   - Test conversation detection
+   - Verify playback features
+   - Full system integration test
+
+## Critical Elements to Preserve
+
+1. Audio Capture:
+   - Callback-based interface
+   - Accurate sample rate handling
+   - Dual-stream processing (44kHz/16kHz)
+
+2. Thread Safety:
+   - Data locks for visualization
+   - Safe audio buffer management
+   - Clean component shutdown
+
+3. Time Synchronization:
+   - Wall-clock based timing
+   - Accurate audio/visual sync
+   - Proper cleanup on exit
+
+## 1. Extract Core Components from test_vad.py
+
+Current working components to preserve:
+- AudioPlayer: Real-time audio playback using sounddevice
+- TimeRange: Timing utilities
+- VADVisualizer: Real-time visualization
+- Main initialization and cleanup patterns
+
+## 2. Create Modular Visualization Framework
+
+### src/visualization/base.py
+```python
+class BaseVisualizer:
+    # Common visualization features
+    - Dark theme setup
+    - Figure and subplot management
+    - Standard controls (Q to quit, M to mute)
+    - Animation handling
+    - Thread-safe data management
+    - Cleanup routines
+```
+
+### src/visualization/audio.py
+```python
+class AudioVisualizer(BaseVisualizer):
+    # Audio waveform visualization
+    - Reuse working waveform plot
+    - Time-based x-axis
+    - Amplitude visualization
+```
+
+### src/visualization/vad.py
+```python
+class VADVisualizer(BaseVisualizer):
+    # Speech detection visualization
+    - Speech probability plot
+    - Speech state indicators
+    - Preserve working VAD visualization
+```
+
+### src/visualization/conversation.py
+```python
+class ConversationVisualizer(BaseVisualizer):
+    # Conversation state visualization
+    - Build on VAD visualization
+    - Add conversation state tracking
+    - Playback state indicators
+```
+
+## 3. Create Common Audio Utilities
+
+### src/audio/player.py
+```python
+class AudioPlayer:
+    # Move existing player implementation
+    - Keep working sounddevice setup
+    - Add conversation playback
+    - Maintain thread safety
+```
+
+### src/audio/utils.py
+```python
+class TimeRange:
+    # Timing utilities
+    - Start/end time tracking
+    - Time containment checks
+```
+
+## 4. Update Test Scripts
+
+### debug/test_vad.py
+- Keep existing working logic
+- Update to use new components
+- Maintain initialization order:
+  1. VAD processor
+  2. Audio capture (for sample rate)
+  3. Audio player
+  4. Visualization
+- Preserve working callback setup
+
+### debug/test_conversation.py
+- Build on test_vad.py structure
+- Add conversation detection
+- Add playback features
+
+## 5. Critical Elements to Preserve
+
+1. Audio Capture:
+   - Callback-based interface
+   - Accurate sample rate handling
+   - Dual-stream processing (44kHz/16kHz)
+
+2. Thread Safety:
+   - Data locks for visualization
+   - Safe audio buffer management
+   - Clean component shutdown
+
+3. Error Handling:
+   - Proper exception catching
+   - Component-specific cleanup
+   - Informative error messages
+
+4. Real-time Processing:
+   - Efficient audio handling
+   - Smooth visualization updates
+   - Low-latency playback
+
+## 6. Implementation Order
+
+1. Base Framework (No Changes to Existing Code)
+   - Create visualization base classes
+   - Set up audio utility modules
+   - Add basic tests
+
+2. Audio Player Migration
+   - Create new module
+   - Test in isolation
+   - Keep existing code working
+
+3. VAD Visualization
+   - Implement using new framework
+   - Run parallel with existing
+   - Verify identical behavior
+
+4. Test Script Updates
+   - Create new test variants
+   - Verify against existing
+   - Only update after validation
+
+5. Conversation Features
+   - Add to working foundation
+   - Maintain existing functionality
+   - Add playback capabilities
+
+## Success Criteria
+
+1. All existing functionality works without regression
+2. New components are properly isolated and reusable
+3. Test coverage remains comprehensive
+4. Real-time performance is maintained
+5. Error handling is robust
+6. Clean shutdown in all scenarios
+
+## Notes
+
+- Always test new components alongside existing ones
+- Don't modify working code until new code is verified
+- Keep performance and memory usage in check
+- Document all component interfaces
+- Maintain consistent error handling patterns
