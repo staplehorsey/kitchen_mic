@@ -115,12 +115,18 @@ setup_venv() {
     sudo mkdir -p /opt/kitchen_mic
     sudo chown kitchen_mic:kitchen_mic /opt/kitchen_mic
     
+    # Copy project files
+    sudo cp -r . /opt/kitchen_mic/
+    sudo chown -R kitchen_mic:kitchen_mic /opt/kitchen_mic
+    
     # Create venv as kitchen_mic user with Python 3.11
     sudo -u kitchen_mic python3.11 -m venv /opt/kitchen_mic/venv
     
-    # Install dependencies
+    # Install dependencies and package
+    cd /opt/kitchen_mic
     sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install --upgrade pip
     sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install -r requirements.txt
+    sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install -e .
 }
 
 # Install Kitchen Mic
@@ -130,6 +136,7 @@ install_kitchen_mic() {
     # Install the service executable
     sudo tee /usr/local/bin/kitchen-mic > /dev/null << 'EOL'
 #!/bin/bash
+cd /opt/kitchen_mic
 source /opt/kitchen_mic/venv/bin/activate
 exec python -m src.service.kitchen_mic "$@"
 EOL
