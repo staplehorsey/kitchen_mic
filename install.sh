@@ -176,14 +176,27 @@ setup_storage() {
         exit 1
     fi
     
+    # Debug: Show mount info
+    log "Mount information for USB drive:"
+    mount | grep "/media/matthias/data"
+    
     # Add kitchen_mic to necessary groups for USB access
     log "Adding kitchen_mic to USB access groups..."
-    sudo usermod -a -G plugdev,disk kitchen_mic
+    sudo usermod -a -G plugdev,disk,matthias kitchen_mic
+    
+    # Debug: Show groups
+    log "Groups for kitchen_mic user:"
+    groups kitchen_mic
     
     # Create storage directory
     STORAGE_DIR="/media/matthias/data/kitchen_mic_data"
     log "Creating storage directory at $STORAGE_DIR..."
     sudo mkdir -p "$STORAGE_DIR"
+    
+    # Debug: Show directory permissions before ACL
+    log "Directory permissions before ACL:"
+    ls -la "$STORAGE_DIR"
+    ls -la "/media/matthias/data"
     
     # Set ACL permissions
     log "Setting up ACL permissions..."
@@ -194,8 +207,22 @@ setup_storage() {
     log "Setting parent directory access..."
     sudo setfacl -m u:kitchen_mic:rx /media/matthias/data
     
+    # Debug: Show ACLs after setting
+    log "ACL permissions after setting:"
+    getfacl "$STORAGE_DIR"
+    getfacl "/media/matthias/data"
+    
+    # Try simpler test first
+    log "Testing directory listing as kitchen_mic..."
+    if sudo -u kitchen_mic ls "$STORAGE_DIR" >/dev/null 2>&1; then
+        log "Can list directory"
+    else
+        error "Cannot list directory"
+        exit 1
+    fi
+    
     # Verify permissions
-    log "Verifying permissions..."
+    log "Testing file creation as kitchen_mic..."
     if sudo -u kitchen_mic touch "$STORAGE_DIR/test"; then
         log "Successfully created test file"
         if sudo -u kitchen_mic rm "$STORAGE_DIR/test"; then
@@ -207,14 +234,16 @@ setup_storage() {
         fi
     else
         error "Failed to create test file"
+        # Debug: Try as root for comparison
+        log "Attempting file creation as root:"
+        if touch "$STORAGE_DIR/root_test"; then
+            log "Root can create files"
+            rm "$STORAGE_DIR/root_test"
+        else
+            log "Even root cannot create files"
+        fi
         exit 1
     fi
-    
-    # Show current permissions
-    log "Current ACL permissions:"
-    getfacl "$STORAGE_DIR"
-    log "Current directory listing:"
-    ls -la "$STORAGE_DIR"
 }
 
 # Main installation
