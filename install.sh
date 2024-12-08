@@ -176,22 +176,23 @@ setup_storage() {
         exit 1
     fi
     
-    # Ensure parent directory is accessible
-    sudo chmod 755 "/media/matthias/data"
+    # Add kitchen_mic to necessary groups for USB access
+    sudo usermod -a -G plugdev,disk kitchen_mic
     
     # Create storage directory
     STORAGE_DIR="/media/matthias/data/kitchen_mic_data"
     sudo mkdir -p "$STORAGE_DIR"
-    sudo chown -R kitchen_mic:kitchen_mic "$STORAGE_DIR"
-    sudo chmod -R 755 "$STORAGE_DIR"
+    
+    # Set ACL permissions to allow kitchen_mic access
+    sudo setfacl -R -m u:kitchen_mic:rwx "$STORAGE_DIR"
+    sudo setfacl -R -m d:u:kitchen_mic:rwx "$STORAGE_DIR"
+    sudo setfacl -m u:kitchen_mic:rx /media/matthias/data
     
     # Verify permissions by trying to create a test file
     if sudo -u kitchen_mic touch "$STORAGE_DIR/test" && sudo -u kitchen_mic rm "$STORAGE_DIR/test"; then
         log "Storage directory permissions verified"
     else
         error "Failed to set up storage directory permissions"
-        # Restore original parent directory permissions
-        sudo chmod 700 "/media/matthias/data"
         exit 1
     fi
 }
