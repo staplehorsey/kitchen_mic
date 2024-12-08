@@ -172,24 +172,30 @@ class ConfigManager:
         self._validate_llm_endpoint()
 
     def _validate_storage_config(self) -> None:
-        """Validate storage configuration and resolve paths."""
-        storage = self.config['storage']
+        """Validate storage configuration."""
+        storage_config = self.config.get('storage', {})
+        base_path = Path(storage_config.get('base_dir', ''))
         
-        # Resolve and validate base path
-        base_path = Path(os.path.expanduser(storage['base_path']))
-        if base_path.is_dir():
-            storage['base_path'] = str(base_path)
-        else:
-            # Try to find USB storage
-            usb_path = self._find_usb_storage()
-            if usb_path:
-                storage['base_path'] = str(usb_path)
-            else:
-                # Fall back to XDG data directory
-                fallback = SystemInfo.get_default_storage_path()
-                fallback.mkdir(parents=True, exist_ok=True)
-                storage['base_path'] = str(fallback)
-                logger.warning(f"Using fallback storage path: {fallback}")
+        # Create storage directory if it doesn't exist
+        try:
+            base_path.mkdir(parents=True, exist_ok=True)
+            # Ensure directory has correct permissions
+            os.system(f'sudo chown -R kitchen_mic:kitchen_mic {base_path}')
+            os.system(f'sudo chmod -R 755 {base_path}')
+        except Exception as e:
+            logging.error(f"Failed to create or set permissions on storage directory {base_path}: {e}")
+            raise ValueError(f"Storage directory {base_path} is not accessible")
+
+        # Validate directory is writable
+        test_file = base_path / '.write_test'
+        try:
+            test_file.touch()
+            test_file.unlink()
+        except Exception as e:
+            logging.error(f"Storage directory {base_path} is not writable: {e}")
+            raise ValueError(f"Storage directory {base_path} is not writable")
+
+        logging.info(f"Storage directory {base_path} is valid and writable")
 
     def _find_usb_storage(self) -> Optional[Path]:
         """Find suitable USB storage device.
@@ -286,7 +292,7 @@ class ConfigManager:
 
     def get_storage_path(self) -> Path:
         """Get the resolved storage path."""
-        return Path(self.config['storage']['base_path'])
+        return Path(self.config['storage']['base_dir'])
 
     def get_audio_config(self) -> Dict[str, Any]:
         """Get audio configuration."""

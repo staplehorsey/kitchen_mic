@@ -1,14 +1,14 @@
 [Unit]
-Description=Kitchen Mic - Audio Conversation Recorder
+Description=Kitchen Mic Service
 After=network.target sound.target
 Wants=sound.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/kitchen-mic start
+ExecStart=/opt/kitchen_mic/venv/bin/python -m src.service.kitchen_mic start --config /etc/kitchen_mic/config.yaml
 ExecStop=/usr/local/bin/kitchen-mic stop
 Restart=always
-RestartSec=3
+RestartSec=10
 
 # Run as kitchen_mic user
 User=kitchen_mic
@@ -21,7 +21,15 @@ PrivateTmp=no
 
 # Environment setup
 Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/opt/kitchen_mic
 WorkingDirectory=/opt/kitchen_mic
+
+# Add required capabilities
+AmbientCapabilities=CAP_DAC_OVERRIDE
+CapabilityBoundingSet=CAP_DAC_OVERRIDE
+
+# Allow access to USB storage
+SupplementaryGroups=plugdev
 
 [Install]
 WantedBy=multi-user.target
