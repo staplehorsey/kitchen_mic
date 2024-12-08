@@ -73,8 +73,19 @@ setup_venv() {
     # Create venv as kitchen_mic user
     sudo -u kitchen_mic python3 -m venv /opt/kitchen_mic/venv
     
-    # Install dependencies
-    sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install --upgrade pip
+    # Install dependencies in a specific order to handle Python 3.12 compatibility
+    log "Installing Python packages..."
+    
+    # First install setuptools and wheel with --no-deps
+    sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install --no-deps setuptools wheel
+    
+    # Then install build dependencies
+    sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install \
+        'setuptools>=68.0.0' \
+        'wheel>=0.40.0' \
+        'pip>=23.0.1'
+    
+    # Finally install project requirements
     sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install -r requirements.txt
 }
 
