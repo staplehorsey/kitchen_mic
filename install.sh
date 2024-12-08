@@ -170,24 +170,28 @@ EOL
 setup_storage() {
     log "Setting up storage directories..."
     
-    # Create storage directory on USB
-    STORAGE_DIR="/media/matthias/data/kitchen_mic_data"
+    # Check if USB drive is mounted
     if [ ! -d "/media/matthias/data" ]; then
         error "USB drive not mounted at /media/matthias/data"
         exit 1
     fi
     
-    sudo mkdir -p "$STORAGE_DIR"
+    # Ensure parent directory is accessible
+    sudo chmod 755 "/media/matthias/data"
     
-    # Set permissions that allow kitchen_mic user to access
+    # Create storage directory
+    STORAGE_DIR="/media/matthias/data/kitchen_mic_data"
+    sudo mkdir -p "$STORAGE_DIR"
     sudo chown -R kitchen_mic:kitchen_mic "$STORAGE_DIR"
     sudo chmod -R 755 "$STORAGE_DIR"
     
-    # Verify permissions
-    if sudo -u kitchen_mic test -w "$STORAGE_DIR"; then
+    # Verify permissions by trying to create a test file
+    if sudo -u kitchen_mic touch "$STORAGE_DIR/test" && sudo -u kitchen_mic rm "$STORAGE_DIR/test"; then
         log "Storage directory permissions verified"
     else
         error "Failed to set up storage directory permissions"
+        # Restore original parent directory permissions
+        sudo chmod 700 "/media/matthias/data"
         exit 1
     fi
 }
