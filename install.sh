@@ -16,8 +16,8 @@ error() {
     exit 1
 }
 
-# Check Ubuntu version
-check_ubuntu_version() {
+# Check Ubuntu version and Python availability
+check_system() {
     if ! grep -q 'Ubuntu' /etc/os-release; then
         error "This script is designed for Ubuntu only"
     fi
@@ -26,10 +26,12 @@ check_ubuntu_version() {
     ubuntu_version=$(grep -oP 'VERSION_ID="\K[^"]+' /etc/os-release)
     log "Detected Ubuntu version: $ubuntu_version"
     
-    # Warn if using development version
-    if [[ "$ubuntu_version" == "24.04" ]]; then
-        log "Note: Running on Ubuntu 24.04 (development version). Some packages might need alternative installation methods."
-    fi
+    # Install Python 3.11
+    log "Installing Python 3.11..."
+    sudo apt-get install -y software-properties-common
+    sudo add-apt-repository -y ppa:deadsnakes/ppa
+    sudo apt-get update
+    sudo apt-get install -y python3.11 python3.11-venv python3.11-dev
 }
 
 # Create kitchen_mic user
@@ -46,16 +48,9 @@ create_user() {
 install_system_deps() {
     log "Installing system dependencies..."
     
-    # Update package list
-    sudo apt-get update
-    
     # Install required packages
     sudo apt-get install -y \
-        python3 \
         python3-pip \
-        python3-venv \
-        python3-dev \
-        python3-setuptools \
         portaudio19-dev \
         libsndfile1 \
         ffmpeg \
@@ -70,22 +65,11 @@ setup_venv() {
     sudo mkdir -p /opt/kitchen_mic
     sudo chown kitchen_mic:kitchen_mic /opt/kitchen_mic
     
-    # Create venv as kitchen_mic user
-    sudo -u kitchen_mic python3 -m venv /opt/kitchen_mic/venv
+    # Create venv as kitchen_mic user with Python 3.11
+    sudo -u kitchen_mic python3.11 -m venv /opt/kitchen_mic/venv
     
-    # Install dependencies in a specific order to handle Python 3.12 compatibility
-    log "Installing Python packages..."
-    
-    # First install setuptools and wheel with --no-deps
-    sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install --no-deps setuptools wheel
-    
-    # Then install build dependencies
-    sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install \
-        'setuptools>=68.0.0' \
-        'wheel>=0.40.0' \
-        'pip>=23.0.1'
-    
-    # Finally install project requirements
+    # Install dependencies
+    sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install --upgrade pip
     sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install -r requirements.txt
 }
 
@@ -142,7 +126,7 @@ EOL
 main() {
     log "Starting Kitchen Mic installation..."
     
-    check_ubuntu_version
+    check_system
     create_user
     install_system_deps
     setup_venv
