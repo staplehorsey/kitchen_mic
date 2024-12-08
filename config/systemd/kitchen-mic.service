@@ -10,9 +10,9 @@ ExecStop=/usr/local/bin/kitchen-mic stop
 Restart=always
 RestartSec=3
 
-# Run as current user for simplicity
-User=%i
-Group=%i
+# Run as kitchen_mic user
+User=kitchen_mic
+Group=kitchen_mic
 
 # Give full access to system
 ProtectSystem=no

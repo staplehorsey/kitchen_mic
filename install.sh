@@ -4,6 +4,7 @@ set -e
 # Colors for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
 
 # Logging functions
@@ -11,10 +12,59 @@ log() {
     echo -e "${GREEN}[INFO]${NC} $1"
 }
 
+warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
 error() {
     echo -e "${RED}[ERROR]${NC} $1"
+    cleanup
     exit 1
 }
+
+# Cleanup function
+cleanup() {
+    warn "Cleaning up installation..."
+    
+    # Stop and disable service if it exists
+    if systemctl is-active kitchen-mic >/dev/null 2>&1; then
+        warn "Stopping kitchen-mic service..."
+        sudo systemctl stop kitchen-mic
+        sudo systemctl disable kitchen-mic
+    fi
+    
+    # Remove service file
+    if [ -f /etc/systemd/system/kitchen-mic.service ]; then
+        warn "Removing service file..."
+        sudo rm /etc/systemd/system/kitchen-mic.service
+        sudo systemctl daemon-reload
+    fi
+    
+    # Remove installation directory
+    if [ -d /opt/kitchen_mic ]; then
+        warn "Removing installation directory..."
+        sudo rm -rf /opt/kitchen_mic
+    fi
+    
+    # Remove executable
+    if [ -f /usr/local/bin/kitchen-mic ]; then
+        warn "Removing executable..."
+        sudo rm /usr/local/bin/kitchen-mic
+    fi
+    
+    # Remove config directory
+    if [ -d /etc/kitchen_mic ]; then
+        warn "Removing config directory..."
+        sudo rm -rf /etc/kitchen_mic
+    fi
+    
+    # Don't remove the user by default as it might be used by other services
+    warn "Note: The kitchen_mic user was not removed. To remove it manually, run:"
+    warn "  sudo userdel -r kitchen_mic"
+}
+
+# Trap errors
+trap 'error "Installation failed! See error message above."' ERR
 
 # Check Ubuntu version and Python availability
 check_system() {
@@ -126,6 +176,12 @@ EOL
 main() {
     log "Starting Kitchen Mic installation..."
     
+    # Check if this is a reinstall
+    if systemctl is-active kitchen-mic >/dev/null 2>&1 || [ -d /opt/kitchen_mic ]; then
+        warn "Existing installation detected. Cleaning up first..."
+        cleanup
+    fi
+    
     check_system
     create_user
     install_system_deps
@@ -142,9 +198,18 @@ main() {
     log "To check status:"
     log "  systemctl status kitchen-mic"
     log ""
+    log "To uninstall:"
+    log "  sudo $(realpath $0) --uninstall"
+    log ""
     log "Configuration file is at: /etc/kitchen_mic/config.yaml"
     log "Storage will be mounted at: /media/kitchen_mic_storage"
 }
+
+# Handle command line arguments
+if [ "$1" == "--uninstall" ]; then
+    cleanup
+    exit 0
+fi
 
 # Run main installation
 main
