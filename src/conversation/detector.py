@@ -9,6 +9,7 @@ import threading
 from typing import Optional, Dict, Protocol, Callable
 from collections import deque
 import numpy as np
+import uuid
 
 from ..messages import ConversationMessage
 
@@ -143,11 +144,14 @@ class ConversationDetector:
         try:
             # Create conversation message
             message = ConversationMessage(
+                id=str(uuid.uuid4()),
                 audio_data=np.array(self._current_audio),
-                sample_rate=self.audio_processor.sample_rate,
                 start_time=self._conversation_start,
                 end_time=end_time,
-                speech_segments=speech_segments
+                metadata={
+                    'sample_rate': self.audio_processor.sample_rate,
+                    'speech_segments': speech_segments
+                }
             )
             
             # Send to callback if provided

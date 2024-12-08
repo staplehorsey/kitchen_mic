@@ -5,20 +5,42 @@ Last Updated: 2024-12-08T12:20:56-05:00
 Create an always-on audio recording system that captures, transcribes, and organizes conversations with high-fidelity audio preservation.
 
 ### 🔧 LLM Instructions
-- Read this entire plan first
-- Load relevant milestone context from .milestone/<milestone_id>.plan
-- Track current progress using emoji states
-- Update milestone status after each significant change
-- Always refer back to this plan for project context
-- Verify the completion of each step before proceeding to the next
-- At the end of every response write a few word summary of the current goal, so I know if these instructions are still in context or if we need to refresh
-- Before implmenting a new step, read the milesone doc stop (even if you have already) and ask for input on the approach for the task you're taking
-- after we complete a task update the relevent plan files
-- at the conclusion of each milestone, document how it integrates with the rest of the project and impacts future milestones
-- copy these LLM instructions and development guidelines into each milestone plan
-- update main project plan at the conclusion of each milestone with learnings and impact
-- when starting a new milestone, first read .milestone.template and follow its structure
-- when starting read this and write a checklist before taking action to make sure we follow all these instructions, make sure not to drop any steps
+STOP! Before taking ANY action, follow these steps in order:
+
+1. 📖 READ PHASE (Required)
+   - Read this ENTIRE plan document first
+   - Load and read the relevant milestone plan from .milestone/<milestone_id>.plan
+   - Read the .milestone.template if starting a new milestone
+   
+2. ✍️ PLANNING PHASE (Required)
+   - Write a checklist of ALL steps needed for the current task
+   - List any assumptions that need verification
+   - EXPLICITLY ask for user input on the approach BEFORE implementing
+   - Wait for user confirmation before proceeding
+   
+3. 🏗️ IMPLEMENTATION PHASE (After approval)
+   - Follow the approved approach exactly
+   - Track progress using emoji states
+   - Document each significant change
+   - Update relevant plan files after each step
+   
+4. 🔄 VERIFICATION PHASE (Required)
+   - Verify completion of each step
+   - Document integration with other components
+   - Update milestone status
+   - Write impact assessment for future milestones
+
+5. 📝 COMMUNICATION REQUIREMENTS
+   - End every response with current goal summary
+   - Use precise technical language
+   - Document all decisions and their rationale
+   - Flag any deviations from the plan
+
+IMPORTANT: 
+- NO implementation without explicit approach approval
+- NO assumptions without verification
+- NO skipping of planning phase
+- ALL changes must be documented
 
 ### 📋 Development Guidelines
 - Strive for simplicity over convention

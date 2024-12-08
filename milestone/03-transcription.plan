@@ -4,18 +4,45 @@ Description: Integrate Whisper for accurate speech transcription
 How this supports the larger project: Converts detected speech segments into searchable text while maintaining high-quality audio for future processing
 
 ### 🔧 LLM Instructions
-- Read this entire plan first
-- Load relevant milestone context from .milestone/<milestone_id>.plan
-- Track current progress using emoji states
-- Update milestone status after each significant change
-- Always refer back to this plan for project context
-- Verify the completion of each step before proceeding to the next
-- At the end of every response write a few word summary of the current goal, so I know if these instructions are still in context or if we need to refresh
-- Before implmenting a new step, read the milesone doc stop (even if you have already) and ask for input on the approach for the task you're taking
-- after we complete a task update the relevent plan files
-- at the conclusion of each milestone, document how it integrates with the rest of the project and impacts future milestones
-- copy these LLM instructions and development guidelines into each milestone plan
-- update main project plan at the conclusion of each milestone with learnings and impact
+STOP! Before taking ANY action, follow these steps in order:
+
+1. 📖 READ PHASE (Required)
+   - Read this ENTIRE milestone plan first
+   - Read the main project.plan for context
+   - Review existing code in src/vad/ and src/audio/
+   
+2. ✍️ PLANNING PHASE (Required)
+   - Write a checklist of ALL steps needed for the current task
+   - List any assumptions about audio processing that need verification
+   - EXPLICITLY ask for user input on:
+     a) Data structure design
+     b) Threading model
+     c) Error handling approach
+   - Wait for user confirmation before proceeding
+   
+3. 🏗️ IMPLEMENTATION PHASE (After approval)
+   - Follow the approved approach exactly
+   - Create small, focused modules
+   - Add detailed logging
+   - Write debug tools for manual testing
+   
+4. 🔄 VERIFICATION PHASE (Required)
+   - Test with real audio input
+   - Verify timing accuracy
+   - Check memory usage
+   - Document performance characteristics
+
+5. 📝 MILESTONE-SPECIFIC REQUIREMENTS
+   - ALL audio operations must preserve sample rate and timing
+   - Document ANY data loss or compression
+   - Track and log ALL conversation boundaries
+   - Maintain thread safety in ALL components
+
+IMPORTANT: 
+- NO implementation without explicit approach approval
+- NO assumptions about audio formats without verification
+- NO skipping of planning phase
+- ALL changes must be documented
 
 ### 📋 Development Guidelines
 - Strive for simplicity over convention
