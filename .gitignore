@@ -60,6 +60,9 @@ Icon
 *.raw
 *.flac
 
+# Debug files
+debug/debug/
+
 # Testing
 .coverage
 htmlcov/

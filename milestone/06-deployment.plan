@@ -1,0 +1,90 @@
+# Milestone 6: Installation & Deployment 🚀
+Status: 💤 Not Started
+Last Updated: 2024-12-08T17:42:38-05:00
+
+## Overview
+Create a robust installation and deployment process to ensure Kitchen Mic can be easily set up on new systems and run reliably as a system service.
+
+## Goals
+- [ ] Package Management
+  - [ ] Organize and verify all dependencies
+  - [ ] Create comprehensive requirements.txt
+  - [ ] Test dependency installation process
+
+- [ ] Configuration System
+  - [ ] Create flexible config system
+  - [ ] Support external storage configuration
+  - [ ] Add audio device selection
+  - [ ] Allow VAD parameter tuning
+  - [ ] Enable model selection (transcription/LLM)
+
+- [ ] Installation Automation
+  - [ ] Create installation script
+  - [ ] Handle environment setup
+  - [ ] Configure audio devices
+  - [ ] Set up storage directories
+  - [ ] Auto-detect USB storage devices
+
+- [ ] System Service Integration
+  - [ ] Create systemd service unit
+  - [ ] Implement orchestrator service wrapper
+  - [ ] Configure auto-start behavior
+  - [ ] Handle service recovery
+  - [ ] Add service control commands (start/stop/restart)
+
+- [ ] Documentation
+  - [ ] Write detailed setup guide
+  - [ ] Document system requirements
+  - [ ] Add troubleshooting section
+  - [ ] Create quick-start guide
+
+## Implementation Plan
+
+### Components
+
+1. Configuration System (`src/config/`)
+   - Main config file (`config.yaml`)
+   - Storage configuration
+     - Support for USB drive detection
+     - Fallback paths
+     - Storage quotas
+   - Audio settings
+     - Device selection
+     - Sample rates
+     - Buffer sizes
+   - VAD parameters
+     - Thresholds
+     - Timing settings
+   - Model configurations
+     - Transcription model selection
+     - LLM settings
+
+2. Orchestrator Service (`src/service/`)
+   - Service wrapper class
+   - Config loading and validation
+   - Graceful shutdown handling
+   - Health monitoring
+   - Status reporting
+
+3. Installation Script (`install.sh`)
+   - System dependency checks
+   - Python environment setup
+   - Directory structure creation
+   - Permission configuration
+
+### Technical Approach
+1. Create idempotent installation process
+2. Implement robust error handling
+3. Add system health checks
+4. Ensure proper cleanup on uninstall
+
+## Success Criteria
+- Clean installation on fresh system
+- Reliable service operation
+- Clear error messages
+- Comprehensive documentation
+
+## Progress Updates
+2024-12-08T17:42:38-05:00: Milestone file created
+- Initial planning and component design
+- Defined success criteria and technical approach

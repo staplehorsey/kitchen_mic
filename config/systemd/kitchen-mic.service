@@ -1,0 +1,27 @@
+[Unit]
+Description=Kitchen Mic - Audio Conversation Recorder
+After=network.target sound.target
+Wants=sound.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/kitchen-mic start
+ExecStop=/usr/local/bin/kitchen-mic stop
+Restart=always
+RestartSec=3
+
+# Run as current user for simplicity
+User=%i
+Group=%i
+
+# Give full access to system
+ProtectSystem=no
+ProtectHome=no
+PrivateTmp=no
+
+# Resource limits - make them generous
+MemoryMax=2G
+TasksMax=256
+
+[Install]
+WantedBy=multi-user.target

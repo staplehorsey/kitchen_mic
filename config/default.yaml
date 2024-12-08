@@ -1,0 +1,84 @@
+# Kitchen Mic Configuration
+
+# Storage settings
+storage:
+  # Primary storage location (will try USB drives first)
+  # This will be overridden by USB storage if available
+  base_path: ~/.local/share/kitchen_mic/storage
+  # Minimum free space required (in GB)
+  min_free_space_gb: 10
+  # Maximum storage usage (in GB, 0 for unlimited)
+  max_storage_gb: 0
+  # Storage structure
+  directory_structure:
+    raw_audio: raw
+    transcripts: transcripts
+    summaries: summaries
+
+# Audio capture settings
+audio:
+  # Network audio source
+  source:
+    host: "staple.local"
+    port: 12345
+    reconnect_delay: 1.0  # Seconds between reconnection attempts
+    buffer_size: 4096     # Network buffer size
+  # Original high-quality capture
+  capture:
+    sample_rate: 44100
+    channels: 1
+  # Downsampled for VAD
+  vad:
+    sample_rate: 16000
+    chunk_size: 512
+
+# Voice Activity Detection
+vad:
+  # Speech detection threshold (0.0-1.0)
+  threshold: 0.5
+  # Minimum duration for a valid conversation
+  min_conversation_sec: 5.0
+  # Time without speech before ending conversation
+  conversation_cooldown_sec: 8.0
+  # Time to keep before first detected speech
+  pre_speech_sec: 3.0
+
+# Conversation processing
+conversation:
+  # Maximum conversations to process simultaneously
+  max_queue_size: 10
+  # Buffer duration for continuous capture
+  buffer_duration_sec: 10.0
+
+# Models
+models:
+  transcription:
+    name: "base"
+    cache_dir: ~/.cache/kitchen_mic/models/transcription
+  
+  llm:
+    # Remote LLM endpoint
+    endpoint: "http://rat.local:8080/v1"
+    # Request configuration
+    max_retries: 3
+    timeout_sec: 30
+    # Model parameters
+    temperature: 0.7
+    max_tokens: 1000
+
+# Service settings
+service:
+  # Log file location (uses system logger if empty)
+  log_file: ~/.local/share/kitchen_mic/logs/kitchen_mic.log
+  # Log level (DEBUG, INFO, WARNING, ERROR)
+  log_level: "INFO"
+  # PID file location
+  pid_file: /var/run/kitchen_mic.pid
+  # Health check interval in seconds
+  health_check_interval: 60
+  # Maximum memory usage in MB (0 for unlimited)
+  max_memory_mb: 0
+  # User to run service as (empty for current user)
+  user: ""
+  # Group to run service as (empty for current user's group)
+  group: ""
