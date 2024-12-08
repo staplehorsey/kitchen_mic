@@ -45,6 +45,7 @@ class VADVisualizer(BaseVisualizer):
         self.audio_data = collections.deque(maxlen=window_size)
         self.speech_probs = collections.deque(maxlen=window_size)
         self.is_speech = collections.deque(maxlen=window_size)
+        self.conversation_state = collections.deque(maxlen=window_size)
         self.samples_per_second = samples_per_second
         self.time_window = time_window
         self.start_time = time.time()
@@ -55,6 +56,7 @@ class VADVisualizer(BaseVisualizer):
             self.audio_data.append(0.0)
             self.speech_probs.append((current_time, 0.0))
             self.is_speech.append((current_time, 0.0))
+            self.conversation_state.append((current_time, 0.0))
         
         # Set up audio plot
         self.line_audio, = self.axes[0].plot(
@@ -77,7 +79,7 @@ class VADVisualizer(BaseVisualizer):
         )
         self.line_conv_prob, = self.axes[1].plot(
             [], [], 'yellow',
-            label='Conv Prob (10s)',
+            label='Conversation',
             linewidth=2,
             alpha=0.7
         )
@@ -98,7 +100,8 @@ class VADVisualizer(BaseVisualizer):
         self,
         audio_chunk: np.ndarray,
         speech_prob: float,
-        is_speech: bool
+        is_speech: bool,
+        is_conversation: bool
     ) -> None:
         """Add new VAD data to visualization.
         
@@ -106,6 +109,7 @@ class VADVisualizer(BaseVisualizer):
             audio_chunk: Audio samples
             speech_prob: Speech probability [0-1]
             is_speech: Speech detection state
+            is_conversation: Conversation detection state
         """
         with self.data_lock:
             # Add audio samples
@@ -116,6 +120,7 @@ class VADVisualizer(BaseVisualizer):
             current_time = time.time()
             self.speech_probs.append((current_time, speech_prob))
             self.is_speech.append((current_time, float(is_speech)))
+            self.conversation_state.append((current_time, float(is_conversation)))
     
     def _update(self, frame) -> Tuple:
         """Update animation frame.
@@ -137,16 +142,20 @@ class VADVisualizer(BaseVisualizer):
                 # Get all data points
                 prob_times, probs = zip(*self.speech_probs)
                 speech_times, speech = zip(*self.is_speech)
+                conv_times, conv = zip(*self.conversation_state)
                 
                 # Convert to numpy arrays for easier filtering
                 prob_times = np.array(prob_times)
                 probs = np.array(probs)
                 speech_times = np.array(speech_times)
                 speech = np.array(speech)
+                conv_times = np.array(conv_times)
+                conv = np.array(conv)
                 
                 # Filter to current window
                 prob_mask = (prob_times >= window_start) & (prob_times <= window_end)
                 speech_mask = (speech_times >= window_start) & (speech_times <= window_end)
+                conv_mask = (conv_times >= window_start) & (conv_times <= window_end)
                 
                 # Update probability plot
                 self.line_prob.set_data(
@@ -154,19 +163,11 @@ class VADVisualizer(BaseVisualizer):
                     probs[prob_mask]
                 )
                 
-                # Calculate 10s moving average for conversation probability
-                if len(probs) > 0:
-                    window_size = int(10 * self.samples_per_second)  # 10 seconds
-                    if len(probs) > window_size:
-                        conv_probs = np.convolve(
-                            probs,
-                            np.ones(window_size)/window_size,
-                            mode='same'
-                        )
-                        self.line_conv_prob.set_data(
-                            prob_times[prob_mask] - window_start,
-                            conv_probs[prob_mask]
-                        )
+                # Update conversation state
+                self.line_conv_prob.set_data(
+                    conv_times[conv_mask] - window_start,
+                    conv[conv_mask]
+                )
                 
                 # Update speech state plot
                 self.line_speech.set_data(

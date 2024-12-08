@@ -59,7 +59,7 @@ def main():
                 
                 # Update visualization and play audio
                 player.play(original)
-                viz.add_data(original, state.speech_probability, state.is_speech)
+                viz.add_data(original, state.speech_probability, state.is_speech, state.is_conversation)
                 
             except Exception as e:
                 logger.error(f"Error processing audio: {e}")
