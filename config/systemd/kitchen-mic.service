@@ -19,9 +19,9 @@ ProtectSystem=no
 ProtectHome=no
 PrivateTmp=no
 
-# Resource limits - make them generous
-MemoryMax=2G
-TasksMax=256
+# Environment setup
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=/opt/kitchen_mic
 
 [Install]
 WantedBy=multi-user.target

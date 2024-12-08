@@ -140,7 +140,7 @@ install_kitchen_mic() {
 #!/bin/bash
 cd /opt/kitchen_mic
 source /opt/kitchen_mic/venv/bin/activate
-exec python -m src.service.kitchen_mic "$@"
+exec python -m src.service.kitchen_mic --config /etc/kitchen_mic/config.yaml "$@"
 EOL
 
     sudo chmod +x /usr/local/bin/kitchen-mic
