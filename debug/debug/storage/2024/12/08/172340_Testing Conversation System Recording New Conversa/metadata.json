@@ -1,0 +1,38 @@
+{
+  "id": "25d42194-2ed7-4348-84a3-1fbbea23f9c9",
+  "start_time": 1733696620.25181,
+  "end_time": 1733696638.346281,
+  "duration": 18.094470977783203,
+  "base_metadata": {
+    "sample_rate": 44000,
+    "sample_rate_16k": 16000,
+    "speech_segments": [
+      [
+        1733696617.235522,
+        19.122254848480225
+      ]
+    ],
+    "first_speech_time": 1733696620.25181
+  },
+  "transcription": {
+    "text": " Okay, we're testing the conversation system again. We're trying to see if we can do the current conversation recording. So after this conversation ends, I'm going to immediately start with a conversation and see if it can pick up that conversation. We had some weird results last time. So I'm going to try a pretty different kind of conversation.",
+    "language": "en",
+    "timing": {
+      "process_start": 1733696638.388309,
+      "process_end": 1733696641.5484958
+    }
+  },
+  "summary": {
+    "title": "Testing Conversation System: Recording New Conversation",
+    "summary": "The team is conducting another test of the conversation system to check if it can record conversations back-to-back. Last test results were inconsistent, so they plan to try a different type of conversation.",
+    "topics": [
+      "Conversation System",
+      "Testing",
+      "Recording"
+    ],
+    "timing": {
+      "process_start": 1733696641.5494258,
+      "process_end": 1733696644.135162
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "4de43db8-826a-4287-b07c-be1dcea091d8",
+  "start_time": 1733696099.448895,
+  "end_time": 1733696140.4975822,
+  "duration": 41.04868721961975,
+  "base_metadata": {
+    "sample_rate": 44000,
+    "sample_rate_16k": 16000,
+    "speech_segments": [
+      [
+        1733696096.431346,
+        42.080451011657715
+      ]
+    ],
+    "first_speech_time": 1733696099.448895
+  },
+  "transcription": {
+    "text": " I'm going to see if I'll use pieces to integrate together. I hope that this conversation is detected. It's going to keep recording. It's going to go and output all of the audio samples into... Actually, it shouldn't be outputting anything. It's going to be saving up to 44kHz. It's going to pass into the conversation object. The conversation object is going to go to the summerization. It's going to be a transcription part, a certified whisperer, and then that's going to spit out the transcription. That's going to go into the summerization. That's going to go. Hopefully save all the same to the assistant organized in a nice, clean way. That's what happened.",
+    "language": "en",
+    "timing": {
+      "process_start": 1733696140.571177,
+      "process_end": 1733696148.275976
+    }
+  },
+  "summary": {
+    "title": "Discussing Process of Recording, Transcribing, and Organizing Conversations",
+    "summary": "Speaker described the process of recording audio at 44kHz, passing it to a conversation object, using a certified whisperer for transcription, and saving the transcriptions in an organized manner.",
+    "topics": [
+      "Recording",
+      "Transcription",
+      "Conversation Organization"
+    ],
+    "timing": {
+      "process_start": 1733696148.276597,
+      "process_end": 1733696151.4906461
+    }
+  }
+}

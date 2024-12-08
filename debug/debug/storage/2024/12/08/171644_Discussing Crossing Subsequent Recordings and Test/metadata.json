@@ -1,0 +1,42 @@
+{
+  "id": "9be9dc88-2269-4db3-8f8d-57afc8c5d0bc",
+  "start_time": 1733696204.784655,
+  "end_time": 1733696239.576245,
+  "duration": 34.791589975357056,
+  "base_metadata": {
+    "sample_rate": 44000,
+    "sample_rate_16k": 16000,
+    "speech_segments": [
+      [
+        1733696096.431346,
+        42.080451011657715
+      ],
+      [
+        1733696201.770098,
+        35.78600215911865
+      ]
+    ],
+    "first_speech_time": 1733696204.784655
+  },
+  "transcription": {
+    "text": " Alright, that works. Now we have to see if it can be crossing subsequent recordings. We also need a test that can do the concurrent recordings correctly. The logs are a little bit noisy but so far this is working exactly what I want to and that's everything. Nice and organized. It has the tidal working, summer working. It looks like the whispered large model. This is a really good job and I'm just sitting here talking and I'm actually picking up. Organize it and do everything. Alright, so let's see. I'm going to see if this conversation is going to start on when the CFL that catches up.",
+    "language": "en",
+    "timing": {
+      "process_start": 1733696239.652354,
+      "process_end": 1733696245.7505002
+    }
+  },
+  "summary": {
+    "title": "Discussing Crossing Subsequent Recordings and Testing Concurrent Recording",
+    "summary": "The team is testing the ability of the tool to cross subsequent recordings and do concurrent recordings correctly. The tool is working as desired, organizing tidal and summer projects, and using the whispered large model. They plan to test if the conversation starts on the correct CFL.",
+    "topics": [
+      "Recording Tests",
+      "Tool Functionality",
+      "Project Organization"
+    ],
+    "timing": {
+      "process_start": 1733696245.7516642,
+      "process_end": 1733696249.015785
+    }
+  }
+}

@@ -1,9 +1,0 @@
-Conversation ID: 26103891-efe3-4608-85b5-1ebbd1e36020
-Start Time: 1733689361.028874
-End Time: 1733689385.4613519
-Duration: 24.43s
-Audio Samples: 1296224
-Sample Rate: 44100 Hz
-
-Speech Segments:
-  (1733689355.9664252, 17.488585948944092)

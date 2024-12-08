@@ -1,0 +1,42 @@
+{
+  "id": "86f973e5-399d-48f5-a735-a57c73f9a226",
+  "start_time": 1733696643.8255,
+  "end_time": 1733696668.954085,
+  "duration": 25.12858510017395,
+  "base_metadata": {
+    "sample_rate": 44000,
+    "sample_rate_16k": 16000,
+    "speech_segments": [
+      [
+        1733696617.235522,
+        19.122254848480225
+      ],
+      [
+        1733696640.7827442,
+        26.182546854019165
+      ]
+    ],
+    "first_speech_time": 1733696643.8255
+  },
+  "transcription": {
+    "text": " I'm trying to make sure that this conversation gets parsed correctly. I want to make sure it has different symbols. I'm going to say like apple, banana, pear, audio, laptop, and that book. Just a bunch of different things to make sure it's able to get all the right audio data. Before I was able to hear a transcription we're doing it correctly. So we'll see this in process in two.",
+    "language": "en",
+    "timing": {
+      "process_start": 1733696669.0092108,
+      "process_end": 1733696673.45912
+    }
+  },
+  "summary": {
+    "title": "Discussing Symbols and Audio Data for Conversation Parsing",
+    "summary": "The speaker is ensuring various symbols such as apple, banana, pear, audio, laptop, and book are used in a conversation for proper audio data transcription. Previous transcriptions were not heard before the correct process was implemented.",
+    "topics": [
+      "Conversation Parsing",
+      "Audio Data",
+      "Symbols"
+    ],
+    "timing": {
+      "process_start": 1733696673.459292,
+      "process_end": 1733696676.371875
+    }
+  }
+}

@@ -1,0 +1,166 @@
+{
+  "id": "b4a5580d-4a99-4328-bd94-792c95221c85",
+  "start_time": 1733692961.181995,
+  "end_time": 1733692977.235865,
+  "duration": 16.05387020111084,
+  "metadata": {
+    "id": "b4a5580d-4a99-4328-bd94-792c95221c85",
+    "start_time": 1733692961.181995,
+    "end_time": 1733692977.235865,
+    "duration": 16.05387020111084,
+    "metadata": {
+      "sample_rate": 44000,
+      "sample_rate_16k": 16000,
+      "speech_segments": [
+        [
+          1733692958.079062,
+          17.15939998626709
+        ]
+      ],
+      "first_speech_time": 1733692961.181995
+    },
+    "wav_path": "debug/conversations/conversation_20241208_162257.wav",
+    "wav_16k_path": "debug/conversations/conversation_20241208_162257_16k.wav"
+  },
+  "transcription": {
+    "text": " Okay, we're trying the dual output thing again. Hopefully it can capture this without too many issues. We've had it try to output 1644,000 hertz, and so far it's been kind of finicky, but we'll see if this does any better now.",
+    "segments": [
+      {
+        "id": 0,
+        "seek": 0,
+        "start": 0.0,
+        "end": 5.0,
+        "text": " Okay, we're trying the dual output thing again.",
+        "tokens": [
+          50365,
+          1033,
+          11,
+          321,
+          434,
+          1382,
+          264,
+          11848,
+          5598,
+          551,
+          797,
+          13,
+          50615
+        ],
+        "temperature": 0.0,
+        "avg_logprob": -0.24401126690764927,
+        "compression_ratio": 1.3372781065088757,
+        "no_speech_prob": 5.097747113325113e-09
+      },
+      {
+        "id": 1,
+        "seek": 0,
+        "start": 5.24,
+        "end": 8.2,
+        "text": " Hopefully it can capture this without too many issues.",
+        "tokens": [
+          50627,
+          10429,
+          309,
+          393,
+          7983,
+          341,
+          1553,
+          886,
+          867,
+          2663,
+          13,
+          50775
+        ],
+        "temperature": 0.0,
+        "avg_logprob": -0.24401126690764927,
+        "compression_ratio": 1.3372781065088757,
+        "no_speech_prob": 5.097747113325113e-09
+      },
+      {
+        "id": 2,
+        "seek": 0,
+        "start": 8.44,
+        "end": 11.78,
+        "text": " We've had it try to output 1644,000 hertz,",
+        "tokens": [
+          50787,
+          492,
+          600,
+          632,
+          309,
+          853,
+          281,
+          5598,
+          3165,
+          13912,
+          11,
+          1360,
+          45830,
+          11,
+          50954
+        ],
+        "temperature": 0.0,
+        "avg_logprob": -0.24401126690764927,
+        "compression_ratio": 1.3372781065088757,
+        "no_speech_prob": 5.097747113325113e-09
+      },
+      {
+        "id": 3,
+        "seek": 0,
+        "start": 11.88,
+        "end": 13.98,
+        "text": " and so far it's been kind of finicky,",
+        "tokens": [
+          50959,
+          293,
+          370,
+          1400,
+          309,
+          311,
+          668,
+          733,
+          295,
+          962,
+          20539,
+          11,
+          51064
+        ],
+        "temperature": 0.0,
+        "avg_logprob": -0.24401126690764927,
+        "compression_ratio": 1.3372781065088757,
+        "no_speech_prob": 5.097747113325113e-09
+      },
+      {
+        "id": 4,
+        "seek": 0,
+        "start": 14.200000000000001,
+        "end": 16.92,
+        "text": " but we'll see if this does any better now.",
+        "tokens": [
+          51075,
+          457,
+          321,
+          603,
+          536,
+          498,
+          341,
+          775,
+          604,
+          1101,
+          586,
+          13,
+          51211
+        ],
+        "temperature": 0.0,
+        "avg_logprob": -0.24401126690764927,
+        "compression_ratio": 1.3372781065088757,
+        "no_speech_prob": 5.097747113325113e-09
+      }
+    ],
+    "language": "en",
+    "timing": {
+      "process_start": 1733693368.128881,
+      "process_end": 1733693378.9794261
+    }
+  }
+}

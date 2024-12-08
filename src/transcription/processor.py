@@ -1,137 +1,113 @@
 """
 Transcription processor using Whisper for speech-to-text conversion.
-Handles conversation audio processing while maintaining timing information.
+Handles model configuration and error handling.
 """
 
 import logging
-import threading
-import queue
+import time
 from pathlib import Path
-from typing import Optional, Dict, Callable
-import json
-
+from typing import Optional, Dict
+import numpy as np
 import whisper
 import torch
 
 from ..messages import ConversationMessage, TranscriptionMessage
 
-logging.basicConfig(level=logging.INFO)
+# Configure logging
 logger = logging.getLogger(__name__)
 
 class TranscriptionProcessor:
-    def __init__(
-        self,
-        storage_dir: Optional[Path] = None,
-        on_transcription: Optional[Callable[[TranscriptionMessage], None]] = None
-    ):
-        """Initialize the transcription processor.
+    """Manages Whisper model and provides transcription processing."""
+    
+    def __init__(self, model_name: str = "base"):
+        """Initialize transcription processor.
         
         Args:
-            storage_dir: Directory to store transcriptions
-            on_transcription: Callback when transcription is complete
+            model_name: Whisper model name to load
         """
-        self.storage_dir = storage_dir or Path("data/transcriptions")
-        self.storage_dir.mkdir(parents=True, exist_ok=True)
-        self.on_transcription = on_transcription
-        
-        # Initialize Whisper
+        # Load model
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        logger.info(f"Loading Whisper model on {self.device}")
-        self.model = whisper.load_model("base").to(self.device)
+        logger.info(f"Loading Whisper model '{model_name}' on {self.device}")
         
-        # Processing queue and thread
-        self.queue = queue.Queue()
-        self._running = True
-        self._process_thread = threading.Thread(target=self._process_loop, daemon=True)
-        self._process_thread.start()
+        try:
+            self.model = whisper.load_model(model_name).to(self.device)
+        except Exception as e:
+            logger.error(f"Failed to load Whisper model: {e}")
+            raise
         
-        logger.info("Transcription processor initialized")
+        logger.debug("Transcription processor initialized")
     
-    def process_conversation(self, conversation: ConversationMessage) -> None:
-        """Queue a conversation for transcription.
+    def _clear_cuda_cache(self) -> None:
+        """Clear CUDA cache if using GPU."""
+        if self.device == "cuda":
+            # Clear cache and collect garbage
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+    
+    def process_conversation(
+        self,
+        conversation: ConversationMessage,
+        language_hint: str = "en"
+    ) -> TranscriptionMessage:
+        """Process a conversation and return transcription message.
         
         Args:
             conversation: Conversation to transcribe
-        """
-        self.queue.put(conversation)
-    
-    def _process_loop(self) -> None:
-        """Background thread for processing conversations."""
-        while self._running:
-            try:
-                # Get next conversation (blocking)
-                conversation = self.queue.get(timeout=1.0)
-                
-                try:
-                    # Process conversation
-                    result = self._transcribe_conversation(conversation)
-                    
-                    # Create transcription message
-                    message = TranscriptionMessage.from_conversation(
-                        conversation=conversation,
-                        transcription=result
-                    )
-                    
-                    # Store results
-                    self._store_transcription(message)
-                    
-                    # Call callback if provided
-                    if self.on_transcription:
-                        try:
-                            self.on_transcription(message)
-                        except Exception as e:
-                            logger.error(f"Error in transcription callback: {e}")
-                    
-                except Exception as e:
-                    logger.error(f"Error processing conversation: {e}")
-                
-                self.queue.task_done()
-            
-            except queue.Empty:
-                continue
-            except Exception as e:
-                logger.error(f"Error in process loop: {e}")
-    
-    def _transcribe_conversation(self, conversation: ConversationMessage) -> Dict:
-        """Transcribe conversation audio.
-        
-        Args:
-            conversation: Conversation to transcribe
+            language_hint: Optional language hint for Whisper (e.g. "en", "es")
             
         Returns:
-            Dict containing transcription and metadata
+            TranscriptionMessage with results
         """
-        # Run Whisper inference (handles 44kHz directly)
-        result = self.model.transcribe(conversation.audio_data)
+        start_time = time.time()
+        logger.debug(f"Processing {conversation.duration:.1f}s of audio")
         
-        # Add conversation metadata
-        result.update({
-            "conversation_id": conversation.id,
-            "start_time": conversation.start_time,
-            "end_time": conversation.end_time
-        })
-        
-        return result
-    
-    def _store_transcription(self, message: TranscriptionMessage) -> None:
-        """Store transcription results.
-        
-        Args:
-            message: Transcription message to store
-        """
-        # Create transcription directory
-        trans_dir = self.storage_dir / message.id
-        trans_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Save transcription data
-        trans_path = trans_dir / "transcription.json"
-        with open(trans_path, "w") as f:
-            json.dump(message.to_dict(), f, indent=2)
-        
-        logger.info(f"Stored transcription for conversation {message.id}")
-    
-    def stop(self) -> None:
-        """Stop the processor and clean up."""
-        self._running = False
-        if self._process_thread.is_alive():
-            self._process_thread.join(timeout=1.0)
+        try:
+            # Clear CUDA cache before processing
+            self._clear_cuda_cache()
+            
+            # Get 16kHz audio data
+            audio = conversation.audio_data_16k
+            
+            # Ensure audio is float32 in [-1, 1]
+            if audio.dtype != np.float32:
+                audio = audio.astype(np.float32)
+            if audio.max() > 1.0:
+                audio = audio / 32768.0  # Convert from int16
+            
+            # Run transcription with improved options
+            result = self.model.transcribe(
+                audio,
+                language=language_hint,
+                initial_prompt="This is a conversation in a kitchen.",
+                task="transcribe",
+                best_of=5,  # Increase beam search
+                temperature=0.0,  # Reduce randomness
+                fp16=torch.cuda.is_available()  # Use FP16 if on GPU
+            )
+            
+            # Create transcription message
+            message = TranscriptionMessage.from_conversation(
+                conversation,
+                transcription={
+                    'text': result['text'],
+                    'segments': result['segments'],
+                    'language': result['language'],
+                    'timing': {
+                        'process_start': start_time,
+                        'process_end': time.time()
+                    }
+                }
+            )
+            
+            # Clear CUDA cache after processing
+            self._clear_cuda_cache()
+            
+            logger.info(
+                f"Transcribed {conversation.id}: "
+                f"{len(result['text'].split())} words"
+            )
+            return message
+            
+        except Exception as e:
+            logger.error(f"Transcription failed: {e}", exc_info=True)
+            raise

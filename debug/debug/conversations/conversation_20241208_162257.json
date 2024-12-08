@@ -1,0 +1,19 @@
+{
+  "id": "b4a5580d-4a99-4328-bd94-792c95221c85",
+  "start_time": 1733692961.181995,
+  "end_time": 1733692977.235865,
+  "duration": 16.05387020111084,
+  "metadata": {
+    "sample_rate": 44000,
+    "sample_rate_16k": 16000,
+    "speech_segments": [
+      [
+        1733692958.079062,
+        17.15939998626709
+      ]
+    ],
+    "first_speech_time": 1733692961.181995
+  },
+  "wav_path": "debug/conversations/conversation_20241208_162257.wav",
+  "wav_16k_path": "debug/conversations/conversation_20241208_162257_16k.wav"
+}

@@ -15,6 +15,8 @@ import threading
 from queue import Queue
 import datetime
 import sys
+import json
+import wave
 
 # Add src directory to Python path
 src_dir = Path(__file__).resolve().parent.parent
@@ -43,10 +45,10 @@ def on_conversation(conversation):
     
     # Generate filename with timestamp
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    wav_path = output_dir / f"conversation_{timestamp}.wav"
+    base_path = output_dir / f"conversation_{timestamp}"
     
-    # Save conversation audio
-    import wave
+    # Save 44kHz audio
+    wav_path = base_path.with_suffix(".wav")
     with wave.open(str(wav_path), 'wb') as wav:
         wav.setnchannels(1)  # Mono
         wav.setsampwidth(2)  # 16-bit
@@ -55,7 +57,27 @@ def on_conversation(conversation):
         audio_int16 = (conversation.audio_data * 32767).astype(np.int16)
         wav.writeframes(audio_int16.tobytes())
     
+    # Save 16kHz audio
+    wav_16k_path = base_path.with_name(f"{base_path.stem}_16k.wav")
+    with wave.open(str(wav_16k_path), 'wb') as wav:
+        wav.setnchannels(1)  # Mono
+        wav.setsampwidth(2)  # 16-bit
+        wav.setframerate(16000)  # 16kHz
+        # Convert float32 to int16
+        audio_int16 = (conversation.audio_data_16k * 32767).astype(np.int16)
+        wav.writeframes(audio_int16.tobytes())
+    
+    # Save metadata
+    meta_path = base_path.with_suffix(".json")
+    with open(meta_path, "w") as f:
+        metadata = conversation.to_dict()
+        metadata["wav_path"] = str(wav_path)
+        metadata["wav_16k_path"] = str(wav_16k_path)
+        json.dump(metadata, f, indent=2)
+    
     logger.info(f"Saved conversation to {wav_path}")
+    logger.info(f"Saved 16kHz audio to {wav_16k_path}")
+    logger.info(f"Saved metadata to {meta_path}")
     logger.info(f"Duration: {conversation.duration:.1f}s")
     logger.info(f"Speech segments: {len(conversation.metadata['speech_segments'])}")
 

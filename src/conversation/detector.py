@@ -81,11 +81,13 @@ class ConversationDetector:
         
         # Ring buffer for pre-conversation audio
         self._audio_buffer = deque(maxlen=self.buffer_samples)
+        self._audio_buffer_16k = deque(maxlen=self.buffer_samples)  # Separate buffer for 16kHz
         
         # Conversation state
         self._lock = threading.Lock()
         self._running = False
         self._current_audio = []  # Only grows during active conversation
+        self._current_audio_16k = []  # 16kHz version
         self._conversation_start = None
         
         logger.info(f"Conversation detector initialized with {pre_speech_sec}s pre-speech buffer")
@@ -105,11 +107,12 @@ class ConversationDetector:
         with self._lock:
             # Add to ring buffer if no active conversation
             if not self._conversation_start:
-                for sample in original_chunk:
-                    self._audio_buffer.append(sample)
+                self._audio_buffer.extend(original_chunk)
+                self._audio_buffer_16k.extend(downsampled_chunk)
             else:
                 # Add to growing conversation buffer
                 self._current_audio.extend(original_chunk)
+                self._current_audio_16k.extend(downsampled_chunk)
             
             # Handle conversation state
             self._handle_conversation_state(vad_state, timestamp)
@@ -131,17 +134,27 @@ class ConversationDetector:
                 # Keep pre_speech_duration seconds before first speech
                 buffer_start_time = vad_state.first_speech_time - self.pre_speech_duration
                 samples_to_keep = int((current_time - buffer_start_time) * self.audio_processor.sample_rate)
+                samples_to_keep_16k = int(samples_to_keep * (16000 / self.audio_processor.sample_rate))
                 
+                # Get last N samples from buffers
                 buffer_list = list(self._audio_buffer)
+                buffer_list_16k = list(self._audio_buffer_16k)
+                
                 if samples_to_keep < len(buffer_list):
                     self._current_audio = buffer_list[-samples_to_keep:]
                 else:
                     self._current_audio = buffer_list
                     
+                if samples_to_keep_16k < len(buffer_list_16k):
+                    self._current_audio_16k = buffer_list_16k[-samples_to_keep_16k:]
+                else:
+                    self._current_audio_16k = buffer_list_16k
+                    
                 logger.debug(f"Captured {len(self._current_audio)/self.audio_processor.sample_rate:.1f}s of audio including {self.pre_speech_duration}s before first speech at {vad_state.first_speech_time}")
             else:
                 # Fallback if no first_speech_time
                 self._current_audio = list(self._audio_buffer)
+                self._current_audio_16k = list(self._audio_buffer_16k)
                 logger.debug(f"No first speech time, using entire buffer ({len(self._current_audio)} samples)")
         
         # End conversation when VAD says conversation is over
@@ -167,10 +180,12 @@ class ConversationDetector:
             message = ConversationMessage(
                 id=str(uuid.uuid4()),
                 audio_data=np.array(self._current_audio),
+                audio_data_16k=np.array(self._current_audio_16k),
                 start_time=self._conversation_start,
                 end_time=end_time,
                 metadata={
                     'sample_rate': self.audio_processor.sample_rate,
+                    'sample_rate_16k': 16000,
                     'speech_segments': speech_segments,
                     'first_speech_time': self._conversation_start  # When we started recording
                 }
@@ -178,16 +193,20 @@ class ConversationDetector:
             
             # Send to callback if provided
             if self.on_conversation:
-                self.on_conversation(message)
+                try:
+                    self.on_conversation(message)
+                except Exception as e:
+                    logger.error(f"Error in conversation callback: {e}", exc_info=True)
             
         except Exception as e:
-            logger.error(f"Error creating conversation message: {e}")
+            logger.error(f"Error creating conversation message: {e}", exc_info=True)
             
         finally:
             # Reset state
             self._conversation_start = None
             self._current_audio = []
-    
+            self._current_audio_16k = []
+
     def start(self) -> None:
         """Start conversation detection."""
         if self._running:
@@ -202,14 +221,13 @@ class ConversationDetector:
     
     def stop(self) -> None:
         """Stop conversation detection."""
-        if not self._running:
-            return
-        
         logger.info("Stopping conversation detector")
         self._running = False
         
-        # Clean up
+        # Remove audio callback
         self.audio_processor.remove_callback(self._handle_audio)
-        self.vad_processor.stop()
         
-        logger.info("Conversation detector stopped")
+        # Clear state
+        self._conversation_start = None
+        self._current_audio = []
+        self._current_audio_16k = []

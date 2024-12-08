@@ -1,0 +1,82 @@
+# Milestone 5: Background Processing 🔄
+Status: 🏃 In Progress
+Last Updated: 2024-12-08T17:01:00-05:00
+
+## Overview
+Add background processing capability to handle completed conversations without blocking new audio capture.
+
+## Goals
+- [ ] Process completed conversations in background
+- [ ] Maintain non-blocking audio capture
+- [ ] Coordinate components without tight coupling
+- [ ] Handle errors gracefully
+
+## Current Focus
+Implementing background processing for completed conversations.
+
+## Implementation Plan
+
+### Components
+
+1. Conversation Orchestrator (`src/conversation/orchestrator.py`)
+   - Coordinates between detector and processors
+   - Manages background processing queue
+   - Handles component lifecycle
+
+2. Background Processing
+   - Use existing components:
+     - ConversationDetector
+     - TranscriptionMessage/SummaryMessage
+     - SummaryProcessor
+   - Add queue for completed conversations
+   - Process in background thread
+
+### Implementation Steps
+
+1. **Phase 1: Orchestrator**
+   - [ ] Create ConversationOrchestrator class
+   - [ ] Add conversation queue
+   - [ ] Set up background worker
+   - [ ] Add error handling
+
+2. **Phase 2: Integration**
+   - [ ] Connect detector callback
+   - [ ] Process through transcription
+   - [ ] Generate summaries
+   - [ ] Save results
+
+3. **Phase 3: Testing**
+   - [ ] Test concurrent conversations
+   - [ ] Verify no blocking
+   - [ ] Check error handling
+   - [ ] Validate results
+
+## Technical Details
+
+### Orchestrator Interface
+```python
+class ConversationOrchestrator:
+    def start(self)  # Start processing
+    def stop(self)   # Stop gracefully
+    def get_status() # Check queue/processing state
+```
+
+### Error Handling
+- Log errors without stopping
+- Preserve failed conversations
+- Report issues for debugging
+
+## Success Criteria
+1. New conversations can start while processing completes
+2. No data loss on errors
+3. Clean component coordination
+4. Easy to monitor and debug
+
+## Testing Strategy
+1. Run multiple conversations in sequence
+2. Verify processing completes correctly
+3. Check error handling and recovery
+4. Validate saved results
+
+Progress Updates:
+[2024-12-08T17:01:00-05:00]: Updated milestone plan to focus on background processing of conversations

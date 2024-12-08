@@ -1,0 +1,45 @@
+{
+  "id": "35e9d8a6-5c20-4c6d-bfb9-751f6b74b491",
+  "start_time": 1733696245.29683,
+  "end_time": 1733696268.361469,
+  "duration": 23.0646390914917,
+  "base_metadata": {
+    "sample_rate": 44000,
+    "sample_rate_16k": 16000,
+    "speech_segments": [
+      [
+        1733696096.431346,
+        42.080451011657715
+      ],
+      [
+        1733696201.770098,
+        35.78600215911865
+      ],
+      [
+        1733696242.284527,
+        24.035213947296143
+      ]
+    ],
+    "first_speech_time": 1733696245.29683
+  },
+  "transcription": {
+    "text": " It's not just a conversation. It's not just a conversation. It's not just a conversation. It's not just a conversation.",
+    "language": "en",
+    "timing": {
+      "process_start": 1733696268.412858,
+      "process_end": 1733696270.168968
+    }
+  },
+  "summary": {
+    "title": "Repeated Emphasis: It's Not Just a Conversation",
+    "summary": "Participants emphasized multiple times that the interaction was not ordinary, but rather something more significant.",
+    "topics": [
+      "Emphasis",
+      "Significance"
+    ],
+    "timing": {
+      "process_start": 1733696270.16913,
+      "process_end": 1733696272.325527
+    }
+  }
+}
