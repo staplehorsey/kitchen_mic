@@ -41,6 +41,14 @@ Progress Updates:
   - Added detailed implementation notes
   - Outlined next steps and technical notes
 
+2024-12-07T23:09:00-05:00:
+- 🔄 Improved VAD detection:
+  - Added history buffer for context between chunks
+  - Increased timing parameters for better phrase detection
+  - Added probability smoothing with hysteresis
+  - Improved speech segment joining logic
+  - Fixed issues with cross-chunk speech detection
+
 # Milestone 2: Voice Activity Detection (VAD)
 
 ## Status: In Progress
@@ -98,6 +106,11 @@ Last Updated: 2024-12-07
 - Silero VAD for voice detection
 - Thread-safe design with proper locking
 - Timestamp-based synchronization
+- VAD Configuration:
+  - Increased min_speech_duration_ms to 250ms for better phrase detection
+  - Increased min_silence_duration_ms to 100ms to avoid splitting words
+  - Added max_history_size (4096 samples) for cross-chunk context
+  - Using probability smoothing with 5-sample history
 
 ## Known Issues
 - Audio playback not working properly in visualization after recent decoupling changes
@@ -178,7 +191,7 @@ Debug Notes:
 - Next: Test with live audio and tune parameters
 
 Next Steps:
-1. Test VAD with live audio input
-2. Tune parameters for optimal speech detection
-3. Add error handling for audio stream issues
-4. Document performance characteristics
+- [ ] Fine-tune VAD parameters for optimal phrase detection
+- [ ] Add configurable noise filtering
+- [ ] Implement adaptive thresholding based on background noise
+- [ ] Add speech segment post-processing to merge nearby segments

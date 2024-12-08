@@ -10,7 +10,7 @@ import socket
 import threading
 import time
 import signal
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Callable
 import struct
 import errno
 
@@ -35,7 +35,8 @@ class AudioCapture:
         original_rate: int = 44000,  # Match server's sample rate
         target_rate: int = 16000,
         channels: int = 1,
-        chunk_size: int = 512  # Match server's chunk size
+        chunk_size: int = 512,  # Match server's chunk size
+        on_data: Optional[Callable[[np.ndarray, np.ndarray], None]] = None  # Callback for new audio data
     ):
         """Initialize audio capture.
         
@@ -47,6 +48,7 @@ class AudioCapture:
             target_rate: Target sample rate for downsampling (Hz)
             channels: Number of audio channels
             chunk_size: Audio chunk size in samples
+            on_data: Callback function(original_chunk, downsampled_chunk) for new audio data
         """
         self.host = host
         self.port = port
@@ -55,6 +57,7 @@ class AudioCapture:
         self.target_rate = target_rate
         self.channels = channels
         self.chunk_size = chunk_size
+        self.on_data = on_data
         
         self.socket: Optional[socket.socket] = None
         self.running = False
@@ -283,6 +286,13 @@ class AudioCapture:
             )
             
             self.downsampled_buffer.append(downsampled)
+            
+            # Call data callback if set
+            if self.on_data:
+                try:
+                    self.on_data(chunk, downsampled)
+                except Exception as e:
+                    logger.error(f"Error in data callback: {e}")
             
     def get_audio_data(self) -> Tuple[np.ndarray, np.ndarray]:
         """Get current audio data from both buffers.
