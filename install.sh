@@ -172,6 +172,11 @@ setup_storage() {
     
     # Create storage directory on USB
     STORAGE_DIR="/media/matthias/data/kitchen_mic_data"
+    if [ ! -d "/media/matthias/data" ]; then
+        error "USB drive not mounted at /media/matthias/data"
+        exit 1
+    fi
+    
     sudo mkdir -p "$STORAGE_DIR"
     
     # Set permissions that allow kitchen_mic user to access
@@ -185,19 +190,6 @@ setup_storage() {
         error "Failed to set up storage directory permissions"
         exit 1
     fi
-    
-    # Add kitchen_mic user to necessary groups
-    sudo usermod -a -G plugdev kitchen_mic
-    
-    # Set up udev rule for USB drive
-    sudo tee /etc/udev/rules.d/99-kitchen-mic-storage.rules > /dev/null << EOL
-ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", ENV{ID_FS_LABEL}=="data", \
-    RUN+="/bin/chown -R kitchen_mic:kitchen_mic /media/matthias/data"
-EOL
-
-    # Reload udev rules
-    sudo udevadm control --reload-rules
-    sudo udevadm trigger
 }
 
 # Main installation
