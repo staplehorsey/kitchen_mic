@@ -168,7 +168,7 @@ EOL
 
 # Set up storage directories
 setup_storage() {
-    log "Setting up storage directories..."
+    log "Setting up storage permissions..."
     
     # Check if USB drive is mounted
     if [ ! -d "/media/matthias/data" ]; then
@@ -177,42 +177,69 @@ setup_storage() {
     fi
     
     # Add kitchen_mic to necessary groups for USB access
+    log "Adding kitchen_mic to USB access groups..."
     sudo usermod -a -G plugdev,disk kitchen_mic
     
     # Create storage directory
     STORAGE_DIR="/media/matthias/data/kitchen_mic_data"
+    log "Creating storage directory at $STORAGE_DIR..."
     sudo mkdir -p "$STORAGE_DIR"
     
-    # Set ACL permissions to allow kitchen_mic access
+    # Set ACL permissions
+    log "Setting up ACL permissions..."
+    log "Setting kitchen_mic access to storage directory..."
     sudo setfacl -R -m u:kitchen_mic:rwx "$STORAGE_DIR"
+    log "Setting default ACLs for new files..."
     sudo setfacl -R -m d:u:kitchen_mic:rwx "$STORAGE_DIR"
+    log "Setting parent directory access..."
     sudo setfacl -m u:kitchen_mic:rx /media/matthias/data
     
-    # Verify permissions by trying to create a test file
-    if sudo -u kitchen_mic touch "$STORAGE_DIR/test" && sudo -u kitchen_mic rm "$STORAGE_DIR/test"; then
-        log "Storage directory permissions verified"
+    # Verify permissions
+    log "Verifying permissions..."
+    if sudo -u kitchen_mic touch "$STORAGE_DIR/test"; then
+        log "Successfully created test file"
+        if sudo -u kitchen_mic rm "$STORAGE_DIR/test"; then
+            log "Successfully removed test file"
+            log "Storage permissions verified"
+        else
+            error "Failed to remove test file"
+            exit 1
+        fi
     else
-        error "Failed to set up storage directory permissions"
+        error "Failed to create test file"
         exit 1
     fi
+    
+    # Show current permissions
+    log "Current ACL permissions:"
+    getfacl "$STORAGE_DIR"
+    log "Current directory listing:"
+    ls -la "$STORAGE_DIR"
 }
 
 # Main installation
 main() {
-    log "Starting Kitchen Mic installation..."
-    
-    # Check if this is a reinstall
-    if systemctl is-active kitchen-mic >/dev/null 2>&1 || [ -d /opt/kitchen_mic ]; then
-        warn "Existing installation detected. Cleaning up first..."
+    if [ "$1" = "--uninstall" ]; then
         cleanup
+        exit 0
     fi
+
+    # Start fresh
+    cleanup
+    
+    # Create kitchen_mic user first
+    create_user
+    
+    # Set up storage
+    setup_storage
+    
+    # Continue with rest of installation
+    log "Installing Kitchen Mic..."
     
     check_system
-    create_user
     install_system_deps
     setup_venv
     install_kitchen_mic
-    setup_storage
     
     log "Installation complete!"
     log ""
