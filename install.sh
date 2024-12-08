@@ -168,61 +168,18 @@ EOL
 
 # Set up storage directories
 setup_storage() {
-    log "Setting up storage permissions..."
-    
-    # Check if USB drive is mounted
-    if [ ! -d "/media/matthias/data" ]; then
-        error "USB drive not mounted at /media/matthias/data"
-        exit 1
-    fi
-    
-    # Add required packages
-    log "Installing required packages..."
-    sudo apt-get update
-    sudo apt-get install -y gvfs gvfs-fuse
-    
-    # Add kitchen_mic to required groups
-    log "Adding kitchen_mic to required groups..."
-    sudo usermod -a -G plugdev kitchen_mic
+    log "Setting up storage directory..."
     
     # Create storage directory
     STORAGE_DIR="/media/matthias/data/kitchen_mic_data"
-    log "Creating storage directory at $STORAGE_DIR..."
-    sudo mkdir -p "$STORAGE_DIR"
-    
-    # Set up GVFS mount access
-    log "Setting up GVFS access..."
-    # Add kitchen_mic to necessary groups for GVFS
-    sudo usermod -a -G plugdev,audio kitchen_mic
-    
-    # Create GVFS mount point for kitchen_mic
-    sudo -u kitchen_mic mkdir -p "/run/user/$(id -u kitchen_mic)/gvfs"
-    sudo -u kitchen_mic mkdir -p "/run/user/$(id -u kitchen_mic)/media"
-    
-    # Set directory permissions
-    log "Setting directory permissions..."
-    sudo chown -R kitchen_mic:kitchen_mic "$STORAGE_DIR"
-    sudo chmod -R 755 "$STORAGE_DIR"
-    
-    # Debug: Show current mount and permissions
-    log "Current mount info:"
-    mount | grep "/media/matthias/data"
-    log "Current permissions:"
-    ls -la "$STORAGE_DIR"
+    mkdir -p "$STORAGE_DIR"
     
     # Test access
-    log "Testing access as kitchen_mic user..."
-    if sudo -u kitchen_mic touch "$STORAGE_DIR/test"; then
-        log "Successfully created test file"
-        sudo -u kitchen_mic rm "$STORAGE_DIR/test"
-        log "Storage permissions verified"
+    log "Testing storage access..."
+    if touch "$STORAGE_DIR/test" && rm "$STORAGE_DIR/test"; then
+        log "Storage directory verified"
     else
-        error "Failed to create test file"
-        # Debug output
-        log "Current process info:"
-        ps aux | grep gvfs
-        log "GVFS mounts:"
-        sudo -u kitchen_mic gvfs-mount -l
+        error "Cannot write to storage directory"
         exit 1
     fi
 }
@@ -237,34 +194,19 @@ main() {
     # Start fresh
     cleanup
     
-    # Create kitchen_mic user first
-    create_user
-    
-    # Set up storage
-    setup_storage
-    
-    # Continue with rest of installation
     log "Installing Kitchen Mic..."
     
-    check_system
-    install_system_deps
     setup_venv
-    install_kitchen_mic
+    setup_storage
+    
+    # Install systemd service for current user
+    log "Setting up systemd service..."
+    mkdir -p ~/.config/systemd/user/
+    envsubst < config/systemd/kitchen-mic.service > ~/.config/systemd/user/kitchen-mic.service
+    systemctl --user daemon-reload
+    systemctl --user enable kitchen-mic
     
     log "Installation complete!"
-    log ""
-    log "To start Kitchen Mic:"
-    log "  sudo systemctl enable kitchen-mic"
-    log "  sudo systemctl start kitchen-mic"
-    log ""
-    log "To check status:"
-    log "  systemctl status kitchen-mic"
-    log ""
-    log "To uninstall:"
-    log "  sudo $(realpath $0) --uninstall"
-    log ""
-    log "Configuration file is at: /etc/kitchen_mic/config.yaml"
-    log "Storage will be mounted at: /media/matthias/data/kitchen_mic_data"
 }
 
 # Handle command line arguments

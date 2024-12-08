@@ -5,14 +5,14 @@ Wants=sound.target
 
 [Service]
 Type=simple
-ExecStart=/opt/kitchen_mic/venv/bin/python -m src.service.kitchen_mic start --config /etc/kitchen_mic/config.yaml
+ExecStart=${HOME}/Projects/kitchen_mic/venv/bin/python -m src.service.kitchen_mic start --config ${HOME}/Projects/kitchen_mic/config/default.yaml
 ExecStop=/usr/local/bin/kitchen-mic stop
 Restart=always
 RestartSec=10
 
-# Run as kitchen_mic user
-User=kitchen_mic
-Group=kitchen_mic
+# Run as user
+User=${HOME}/Projects/kitchen_mic
+Group=${HOME}/Projects/kitchen_mic
 
 # Give full access to system
 ProtectSystem=no
@@ -21,8 +21,8 @@ PrivateTmp=no
 
 # Environment setup
 Environment=PYTHONUNBUFFERED=1
-Environment=PYTHONPATH=/opt/kitchen_mic
-WorkingDirectory=/opt/kitchen_mic
+Environment=PYTHONPATH=${HOME}/Projects/kitchen_mic
+WorkingDirectory=${HOME}/Projects/kitchen_mic
 
 # Add required capabilities
 AmbientCapabilities=CAP_DAC_OVERRIDE
@@ -32,4 +32,4 @@ CapabilityBoundingSet=CAP_DAC_OVERRIDE
 SupplementaryGroups=plugdev
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
