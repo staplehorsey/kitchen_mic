@@ -180,9 +180,12 @@ setup_storage() {
     log "Mount information for USB drive:"
     mount | grep "/media/matthias/data"
     
-    # Add kitchen_mic to necessary groups for USB access
-    log "Adding kitchen_mic to USB access groups..."
-    sudo usermod -a -G plugdev,disk,matthias kitchen_mic
+    # Add kitchen_mic to matthias group and ensure group exists
+    log "Setting up groups..."
+    if ! getent group matthias >/dev/null; then
+        sudo groupadd matthias
+    fi
+    sudo usermod -a -G matthias kitchen_mic
     
     # Debug: Show groups
     log "Groups for kitchen_mic user:"
@@ -193,24 +196,15 @@ setup_storage() {
     log "Creating storage directory at $STORAGE_DIR..."
     sudo mkdir -p "$STORAGE_DIR"
     
-    # Debug: Show directory permissions before ACL
-    log "Directory permissions before ACL:"
+    # Set directory ownership and permissions
+    log "Setting directory permissions..."
+    sudo chown matthias:matthias "$STORAGE_DIR"
+    sudo chmod 770 "$STORAGE_DIR"
+    
+    # Debug: Show directory permissions
+    log "Directory permissions after setup:"
     ls -la "$STORAGE_DIR"
     ls -la "/media/matthias/data"
-    
-    # Set ACL permissions
-    log "Setting up ACL permissions..."
-    log "Setting kitchen_mic access to storage directory..."
-    sudo setfacl -R -m u:kitchen_mic:rwx "$STORAGE_DIR"
-    log "Setting default ACLs for new files..."
-    sudo setfacl -R -m d:u:kitchen_mic:rwx "$STORAGE_DIR"
-    log "Setting parent directory access..."
-    sudo setfacl -m u:kitchen_mic:rx /media/matthias/data
-    
-    # Debug: Show ACLs after setting
-    log "ACL permissions after setting:"
-    getfacl "$STORAGE_DIR"
-    getfacl "/media/matthias/data"
     
     # Try simpler test first
     log "Testing directory listing as kitchen_mic..."
@@ -218,10 +212,13 @@ setup_storage() {
         log "Can list directory"
     else
         error "Cannot list directory"
+        # Debug: Show effective permissions
+        log "Effective permissions for kitchen_mic:"
+        sudo -u kitchen_mic bash -c "ls -la $STORAGE_DIR"
         exit 1
     fi
     
-    # Verify permissions
+    # Verify write permissions
     log "Testing file creation as kitchen_mic..."
     if sudo -u kitchen_mic touch "$STORAGE_DIR/test"; then
         log "Successfully created test file"
