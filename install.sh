@@ -44,6 +44,7 @@ install_system_deps() {
         python3-pip \
         python3-venv \
         python3-dev \
+        python3.12-distutils \
         portaudio19-dev \
         libsndfile1 \
         ffmpeg \
