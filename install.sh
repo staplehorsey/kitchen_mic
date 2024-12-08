@@ -176,69 +176,56 @@ setup_storage() {
         exit 1
     fi
     
-    # Debug: Show mount info
-    log "Mount information for USB drive:"
-    mount | grep "/media/matthias/data"
+    # Add required packages
+    log "Installing required packages..."
+    sudo apt-get update
+    sudo apt-get install -y udisks2 acl
     
-    # Add kitchen_mic to matthias group and ensure group exists
-    log "Setting up groups..."
-    if ! getent group matthias >/dev/null; then
-        sudo groupadd matthias
-    fi
-    sudo usermod -a -G matthias kitchen_mic
+    # Add kitchen_mic to required groups
+    log "Adding kitchen_mic to required groups..."
+    sudo usermod -a -G plugdev,audio kitchen_mic
     
-    # Debug: Show groups
-    log "Groups for kitchen_mic user:"
-    groups kitchen_mic
-    
-    # Create storage directory
+    # Create storage directory with proper udisks2 permissions
     STORAGE_DIR="/media/matthias/data/kitchen_mic_data"
     log "Creating storage directory at $STORAGE_DIR..."
+    
+    # Create with standard udisks2 permissions
     sudo mkdir -p "$STORAGE_DIR"
+    sudo chown :plugdev "$STORAGE_DIR"
+    sudo chmod g+rwx "$STORAGE_DIR"
     
-    # Set directory ownership and permissions
-    log "Setting directory permissions..."
-    sudo chown matthias:matthias "$STORAGE_DIR"
-    sudo chmod 770 "$STORAGE_DIR"
+    # Set default group for new files
+    sudo chmod g+s "$STORAGE_DIR"
     
-    # Debug: Show directory permissions
-    log "Directory permissions after setup:"
+    # Add udisks2 rule for our directory
+    log "Setting up udisks2 rules..."
+    sudo tee /etc/udev/rules.d/99-kitchen-mic.rules > /dev/null << EOL
+# Give plugdev group access to our storage directory
+ENV{ID_FS_USAGE}=="filesystem", ENV{UDISKS_FILESYSTEM_SHARED}="1"
+EOL
+    
+    # Reload udev rules
+    sudo udevadm control --reload-rules
+    sudo udevadm trigger
+    
+    # Remount the drive with proper permissions
+    log "Remounting drive with new permissions..."
+    sudo mount -o remount,gid=plugdev,umask=002 /dev/sdc /media/matthias/data
+    
+    # Debug: Show current mount and permissions
+    log "Current mount info:"
+    mount | grep "/media/matthias/data"
+    log "Current permissions:"
     ls -la "$STORAGE_DIR"
-    ls -la "/media/matthias/data"
     
-    # Try simpler test first
-    log "Testing directory listing as kitchen_mic..."
-    if sudo -u kitchen_mic ls "$STORAGE_DIR" >/dev/null 2>&1; then
-        log "Can list directory"
-    else
-        error "Cannot list directory"
-        # Debug: Show effective permissions
-        log "Effective permissions for kitchen_mic:"
-        sudo -u kitchen_mic bash -c "ls -la $STORAGE_DIR"
-        exit 1
-    fi
-    
-    # Verify write permissions
-    log "Testing file creation as kitchen_mic..."
+    # Test access
+    log "Testing access as kitchen_mic user..."
     if sudo -u kitchen_mic touch "$STORAGE_DIR/test"; then
         log "Successfully created test file"
-        if sudo -u kitchen_mic rm "$STORAGE_DIR/test"; then
-            log "Successfully removed test file"
-            log "Storage permissions verified"
-        else
-            error "Failed to remove test file"
-            exit 1
-        fi
+        sudo -u kitchen_mic rm "$STORAGE_DIR/test"
+        log "Storage permissions verified"
     else
         error "Failed to create test file"
-        # Debug: Try as root for comparison
-        log "Attempting file creation as root:"
-        if touch "$STORAGE_DIR/root_test"; then
-            log "Root can create files"
-            rm "$STORAGE_DIR/root_test"
-        else
-            log "Even root cannot create files"
-        fi
         exit 1
     fi
 }
