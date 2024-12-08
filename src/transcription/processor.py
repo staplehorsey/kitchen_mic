@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class TranscriptionProcessor:
     """Manages Whisper model and provides transcription processing."""
     
-    def __init__(self, model_name: str = "base"):
+    def __init__(self, model_name: str = "large"):
         """Initialize transcription processor.
         
         Args:
