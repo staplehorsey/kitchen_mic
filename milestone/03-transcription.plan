@@ -1,0 +1,217 @@
+#### Milestone 3: Audio Collection & Transcription
+Status: 🏃 In Progress
+Description: Integrate Whisper for accurate speech transcription
+How this supports the larger project: Converts detected speech segments into searchable text while maintaining high-quality audio for future processing
+
+### 🔧 LLM Instructions
+- Read this entire plan first
+- Load relevant milestone context from .milestone/<milestone_id>.plan
+- Track current progress using emoji states
+- Update milestone status after each significant change
+- Always refer back to this plan for project context
+- Verify the completion of each step before proceeding to the next
+- At the end of every response write a few word summary of the current goal, so I know if these instructions are still in context or if we need to refresh
+- Before implmenting a new step, read the milesone doc stop (even if you have already) and ask for input on the approach for the task you're taking
+- after we complete a task update the relevent plan files
+- at the conclusion of each milestone, document how it integrates with the rest of the project and impacts future milestones
+- copy these LLM instructions and development guidelines into each milestone plan
+- update main project plan at the conclusion of each milestone with learnings and impact
+
+### 📋 Development Guidelines
+- Strive for simplicity over convention
+- Use good epistemology, do not make assumptions you cannot verify 
+- Avoid midwit cargo culted development patterns without a clear reason
+- Write modular code in small files with brief doc comments
+- Keep the .plan and .milestone updated after every step
+- Write logs with timestamps and context
+- During debugging, update plan and review previous steps
+- don't write unit tests instead write little tools to manually run
+
+Progress Updates:
+2024-12-08T12:23:39-05:00: Milestone file created
+2024-12-08T12:31:08-05:00: Milestone plan updated
+2024-12-08T12:36:08-05:00: Milestone plan updated with detailed implementation steps
+- 🎯 Initial goals:
+  1. Set up Whisper integration
+     - Initialize Whisper model
+     - Configure for optimal performance
+     - Set up proper error handling
+  2. Speech segment management
+     - Buffer speech segments from VAD
+     - Handle conversation boundaries
+     - Implement efficient storage strategy
+  3. Transcription pipeline
+     - Process speech segments in real-time
+     - Handle overlapping conversations
+     - Maintain timing information
+  4. Storage system
+     - Save high-fidelity audio
+     - Store transcriptions with metadata
+     - Implement efficient file organization
+- 🎯 Refined goals based on existing infrastructure:
+  1. High-Quality Audio Buffer Management
+     - Utilize existing 44kHz stream from Milestone 1
+     - Implement circular buffer with 5-second pre-conversation retention
+     - Add precise timestamp telemetry for each chunk
+  2. VAD Integration (from Milestone 2)
+     - Use VAD events to trigger conversation recording
+     - Maintain timing correlation between 16kHz VAD and 44kHz audio
+     - Handle conversation boundaries cleanly
+  3. Asynchronous Processing Pipeline
+     - Non-blocking conversation collection
+     - Parallel transcription processing
+     - Clean handoff between components
+- 🎯 Implementation Plan:
+  1. Audio Capture Enhancement
+     - Add timestamp tracking for 44kHz chunks
+     - Implement method to extract audio by timestamp range
+     - Add telemetry for chunk timing
+  2. Conversation Buffer Implementation
+     - Create circular buffer for 44kHz audio
+     - Maintain 5-second pre-conversation history
+     - Add thread-safe timestamp-based access
+  3. Conversation Collection System
+     - Monitor VAD state for conversation events
+     - Handle conversation boundaries
+     - Package conversations with metadata
+  4. Transcription Processing
+     - Implement async worker system
+     - Add Whisper integration
+     - Preserve timing information
+
+# Milestone 3: Audio Collection & Transcription
+
+## Status: In Progress
+Last Updated: 2024-12-08T13:11:14-05:00
+
+## Overview
+This milestone is split into two main components:
+1. Conversation Collection: Combining VAD and audio into clean conversation objects
+2. Transcription: Converting conversations to transcriptions
+
+Each component is designed as a pure function that will later plug into the pipeline system.
+
+## Part 1: Conversation Collection
+
+### Goals
+- [ ] Create ConversationMessage data structure
+- [ ] Implement high-quality audio buffer
+- [ ] Build conversation collector
+- [ ] Add precise timing telemetry
+- [ ] Handle conversation boundaries
+
+### Components
+1. **ConversationMessage**
+   ```python
+   @dataclass
+   class ConversationMessage:
+       id: str
+       start_time: float
+       end_time: float
+       audio_data: np.ndarray  # 44kHz
+       metadata: Dict[str, Any]  # timestamps, VAD events
+   ```
+
+2. **AudioBuffer**
+   - Maintains 44kHz audio stream
+   - 5-second pre-conversation retention
+   - Thread-safe timestamp tracking
+   - Pure function interface for pipeline
+
+3. **ConversationCollector**
+   - Monitors VAD events
+   - Manages conversation boundaries
+   - Creates ConversationMessage objects
+   - No internal concurrency (handled by pipeline)
+
+### Data Flow
+```
+AudioCapture (44kHz) → AudioBuffer
+VADProcessor → Events → ConversationCollector
+AudioBuffer + Events → ConversationMessage
+```
+
+## Part 2: Transcription
+
+### Goals
+- [ ] Create TranscriptionMessage data structure
+- [ ] Implement Whisper integration
+- [ ] Add timing preservation
+- [ ] Prepare for pipeline integration
+
+### Components
+1. **TranscriptionMessage**
+   ```python
+   @dataclass
+   class TranscriptionMessage(ConversationMessage):
+       transcription: Dict[str, Any]  # Whisper output
+   ```
+
+2. **TranscriptionProcessor**
+   - Takes ConversationMessage
+   - Runs Whisper inference
+   - Returns TranscriptionMessage
+   - Pure function interface for pipeline
+
+### Data Flow
+```
+ConversationMessage → TranscriptionProcessor → TranscriptionMessage
+```
+
+## Implementation Guidelines
+1. Each component should be designed as a pure function:
+   - Takes input data, returns output data
+   - No internal state management
+   - No concurrency handling
+   - Clear input/output contracts
+
+2. Error handling:
+   - Components report errors but don't handle recovery
+   - Pipeline will handle retries and fallbacks
+   - Each stage preserves original data
+
+3. Testing:
+   - Create debug tools for each component
+   - Test components in isolation
+   - Verify timing accuracy
+   - Check memory usage
+
+## Next Steps
+1. Implement ConversationMessage and TranscriptionMessage
+2. Build AudioBuffer with timestamp tracking
+3. Create ConversationCollector
+4. Add Whisper integration
+5. Test components individually
+6. Verify timing accuracy
+
+## Future Integration (Milestone 4)
+- Components will be wrapped by pipeline stages
+- Pipeline handles all concurrency
+- Each stage becomes worker in pipeline
+- Clean handoff between stages
+
+## Technical Requirements
+- Thread-safe operations throughout
+- Non-blocking conversation collection
+- Precise timing correlation
+- Memory-efficient buffer management
+- Error recovery and logging
+
+## Integration Points
+- Milestone 1 (Audio Pipeline):
+  - Uses 44kHz high-quality stream
+  - Leverages existing audio capture
+- Milestone 2 (VAD):
+  - Uses VAD events for detection
+  - Correlates with 16kHz timing
+- Milestone 4 (LLM):
+  - Provides transcription for summarization
+  - Includes timing for organization
+
+## Dependencies
+- whisper
+- numpy
+- soundfile
+- queue (for async processing)
+- threading
+- collections

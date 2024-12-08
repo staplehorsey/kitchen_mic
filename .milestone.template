@@ -1,0 +1,64 @@
+### 📑 Milestone Template
+#### Milestone X: [Name]
+Status: 💤 Not Started
+Description: [Brief description of the milestone]
+How this supports the larger project: [Explain how this milestone contributes to the overall project goals]
+
+### 🔧 LLM Instructions
+[Copy the LLM Instructions section from the top of project.plan]
+
+### 📋 Development Guidelines
+[Copy the Development Guidelines section from the top of project.plan]
+
+Progress Updates:
+[YYYY-MM-DD]THH:MM:SS-05:00: Milestone file created
+- 🎯 Initial goals:
+  1. [First major goal]
+     - [Subgoal 1]
+     - [Subgoal 2]
+  2. [Second major goal]
+     - [Subgoal 1]
+     - [Subgoal 2]
+
+# Milestone X: [Name]
+
+## Status: Not Started
+Last Updated: [Date]
+
+## Goals
+- [ ] [Goal 1]
+- [ ] [Goal 2]
+- [ ] [Goal 3]
+
+## Current Focus
+[Describe what we're currently working on]
+
+## Implementation Plan
+
+### Components
+[List and describe main components]
+
+### Implementation Steps
+1. **Phase 1: [Name]**
+   - [ ] [Step 1]
+   - [ ] [Step 2]
+
+2. **Phase 2: [Name]**
+   - [ ] [Step 1]
+   - [ ] [Step 2]
+
+## Technical Requirements
+- [Requirement 1]
+- [Requirement 2]
+
+## Integration Points
+- Previous Milestone:
+  - [Integration point 1]
+  - [Integration point 2]
+- Next Milestone:
+  - [Integration point 1]
+  - [Integration point 2]
+
+## Dependencies
+- [Dependency 1]
+- [Dependency 2]

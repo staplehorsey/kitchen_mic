@@ -1,0 +1,203 @@
+"""
+Pipeline for processing conversations through transcription, summarization, and storage.
+Each stage enriches the conversation data and passes it to the next stage.
+"""
+
+import queue
+import threading
+import logging
+from typing import Optional, Dict, List, Any
+from dataclasses import dataclass, asdict
+from pathlib import Path
+import json
+import numpy as np
+
+from .collector import Conversation
+
+logger = logging.getLogger(__name__)
+
+@dataclass
+class ConversationData:
+    """Represents a conversation with all its processed data."""
+    # Base conversation info
+    id: str
+    start_time: float
+    end_time: float
+    audio_data: np.ndarray
+    chunk_timestamps: List[float]
+    vad_events: List[Dict]
+    
+    # Enriched data (added by pipeline stages)
+    transcription: Optional[Dict] = None
+    summary: Optional[str] = None
+    title: Optional[str] = None
+
+class PipelineStage(threading.Thread):
+    """Base class for pipeline stages."""
+    
+    def __init__(self, name: str, input_queue: queue.Queue, output_queue: queue.Queue):
+        """Initialize pipeline stage.
+        
+        Args:
+            name: Stage name for logging
+            input_queue: Queue to receive data from
+            output_queue: Queue to send processed data to
+        """
+        super().__init__(daemon=True)
+        self.name = name
+        self.input_queue = input_queue
+        self.output_queue = output_queue
+        self._running = True
+        logger.info(f"Initialized pipeline stage: {name}")
+    
+    def run(self):
+        """Main processing loop."""
+        while self._running:
+            try:
+                # Get next item (blocking)
+                data = self.input_queue.get(timeout=1.0)
+                
+                try:
+                    # Process the data
+                    result = self.process(data)
+                    
+                    # Pass to next stage if we have output
+                    if result is not None:
+                        self.output_queue.put(result)
+                
+                except Exception as e:
+                    logger.error(f"Error in {self.name} stage: {e}")
+                
+                self.input_queue.task_done()
+            
+            except queue.Empty:
+                continue
+            except Exception as e:
+                logger.error(f"Error in {self.name} loop: {e}")
+    
+    def process(self, data: ConversationData) -> Optional[ConversationData]:
+        """Process the data. Override in subclasses.
+        
+        Args:
+            data: Conversation data to process
+            
+        Returns:
+            Processed conversation data or None if processing failed
+        """
+        raise NotImplementedError
+    
+    def stop(self):
+        """Stop the pipeline stage."""
+        self._running = False
+        self.join(timeout=1.0)
+
+class TranscriptionStage(PipelineStage):
+    """Transcribes conversation audio using Whisper."""
+    
+    def __init__(self, input_queue: queue.Queue, output_queue: queue.Queue):
+        super().__init__("Transcription", input_queue, output_queue)
+        
+        # Initialize Whisper
+        import whisper
+        import torch
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info(f"Loading Whisper model on {self.device}")
+        self.model = whisper.load_model("base").to(self.device)
+    
+    def process(self, data: ConversationData) -> Optional[ConversationData]:
+        """Transcribe conversation audio."""
+        try:
+            # Run inference (Whisper can handle 44kHz directly)
+            result = self.model.transcribe(data.audio_data)
+            
+            # Add transcription to conversation data
+            data.transcription = result
+            return data
+        
+        except Exception as e:
+            logger.error(f"Transcription failed: {e}")
+            return None
+
+class StorageStage(PipelineStage):
+    """Stores processed conversation data."""
+    
+    def __init__(self, input_queue: queue.Queue, output_queue: queue.Queue, storage_dir: Path):
+        super().__init__("Storage", input_queue, output_queue)
+        self.storage_dir = storage_dir
+        self.storage_dir.mkdir(parents=True, exist_ok=True)
+    
+    def process(self, data: ConversationData) -> Optional[ConversationData]:
+        """Store conversation data."""
+        try:
+            # Create conversation directory
+            conv_dir = self.storage_dir / data.id
+            conv_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Store metadata and transcription
+            metadata = asdict(data)
+            metadata["audio_data"] = None  # Don't store audio in JSON
+            
+            meta_path = conv_dir / "metadata.json"
+            with open(meta_path, "w") as f:
+                json.dump(metadata, f, indent=2)
+            
+            # Store audio data
+            # TODO: Implement high-quality audio storage format
+            
+            return data
+        
+        except Exception as e:
+            logger.error(f"Storage failed: {e}")
+            return None
+
+class Pipeline:
+    """Main pipeline coordinator."""
+    
+    def __init__(self, storage_dir: Optional[Path] = None):
+        """Initialize pipeline.
+        
+        Args:
+            storage_dir: Directory for storing conversations
+        """
+        self.storage_dir = storage_dir or Path("data/conversations")
+        
+        # Create queues
+        self.input_queue = queue.Queue()
+        self.transcription_queue = queue.Queue()
+        self.storage_queue = queue.Queue()
+        
+        # Create stages
+        self.stages = [
+            TranscriptionStage(self.input_queue, self.transcription_queue),
+            StorageStage(self.transcription_queue, self.storage_queue, self.storage_dir)
+        ]
+        
+        # Start all stages
+        for stage in self.stages:
+            stage.start()
+        
+        logger.info("Pipeline initialized")
+    
+    def process_conversation(self, conversation: Conversation):
+        """Process a conversation through the pipeline.
+        
+        Args:
+            conversation: Conversation to process
+        """
+        # Convert to internal format
+        data = ConversationData(
+            id=conversation.id,
+            start_time=conversation.start_time,
+            end_time=conversation.end_time,
+            audio_data=conversation.audio_data,
+            chunk_timestamps=conversation.chunk_timestamps,
+            vad_events=conversation.vad_events
+        )
+        
+        # Add to pipeline
+        self.input_queue.put(data)
+    
+    def stop(self):
+        """Stop all pipeline stages."""
+        for stage in self.stages:
+            stage.stop()

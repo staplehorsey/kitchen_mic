@@ -1,5 +1,5 @@
 # Kitchen Mic Project Plan 🎙️
-Last Updated: 2024-12-07T19:53:48-05:00
+Last Updated: 2024-12-08T12:20:56-05:00
 
 ## Project goals
 Create an always-on audio recording system that captures, transcribes, and organizes conversations with high-fidelity audio preservation.
@@ -14,6 +14,11 @@ Create an always-on audio recording system that captures, transcribes, and organ
 - At the end of every response write a few word summary of the current goal, so I know if these instructions are still in context or if we need to refresh
 - Before implmenting a new step, read the milesone doc stop (even if you have already) and ask for input on the approach for the task you're taking
 - after we complete a task update the relevent plan files
+- at the conclusion of each milestone, document how it integrates with the rest of the project and impacts future milestones
+- copy these LLM instructions and development guidelines into each milestone plan
+- update main project plan at the conclusion of each milestone with learnings and impact
+- when starting a new milestone, first read .milestone.template and follow its structure
+- when starting read this and write a checklist before taking action to make sure we follow all these instructions, make sure not to drop any steps
 
 ### 📋 Development Guidelines
 - Strive for simplicity over convention
@@ -32,26 +37,82 @@ Create an always-on audio recording system that captures, transcribes, and organ
 - LLM: Llama 7b (http://rat.local:8080/v1/)
 - Audio Source: staple.local:12345 (44Hz raw audio)
 
+### 🏗️ System Architecture
+- Data Pipeline Design
+  - Each stage is a pure function that takes input data and returns enriched data
+  - Pipeline handles all concurrency, queuing, and error recovery
+  - Components communicate through standardized message objects
+  - Message Flow:
+    ```
+    ConversationMessage:
+      - id: str
+      - start_time: float
+      - end_time: float
+      - audio_data: np.ndarray (44kHz)
+      - metadata: Dict
+        - chunk_timestamps: List[float]
+        - vad_events: List[Dict]
+        
+    TranscriptionMessage(ConversationMessage):
+      + transcription: Dict
+        - text: str
+        - segments: List[Dict]
+        - language: str
+        
+    SummaryMessage(TranscriptionMessage):
+      + summary: str
+      + title: str
+    ```
+  - Stage Responsibilities:
+    1. Conversation Collection: Audio + VAD -> ConversationMessage
+    2. Transcription: ConversationMessage -> TranscriptionMessage
+    3. Summary: TranscriptionMessage -> SummaryMessage
+    4. Storage: Handles persistence of final state
+  - Each conversation flows through stages: Collection -> Transcription -> Summary -> Storage
+  - Each stage enriches conversation data without modifying previous data
+  - Non-blocking operation with thread-safe handoffs
+  - Location: src/pipeline/ (after milestone 3)
+  - Components:
+    - ConversationData: Core data structure tracking all conversation info
+    - PipelineStage: Base class for processing stages
+    - Pipeline: Coordinates data flow between stages
+
 ### 🎯 Project Milestones
 1. [✨] Project Setup & Audio Pipeline
    - Location: .milestone/01-setup.plan
    - Description: Initial setup, dual-stream audio pipeline, and debug tools
    
-2. [🏃] Voice Activity Detection
+2. [✨] Voice Activity Detection
    - Location: .milestone/02-vad.plan
    - Description: Silero VAD integration with downsampled audio
-   - Status: Testing with live audio and tuning parameters
+   - Status: Complete with real-time visualization and verified accuracy
 
-3. [💤] Transcription System
+3. [🏃] Audio Collection & Transcription
    - Location: .milestone/03-transcription.plan
-   - Description: Whisper integration and file management
+   - Part 1: Conversation Collection
+     - Combine VAD and audio into conversation objects
+     - Handle timing and metadata
+     - Pure function design for pipeline compatibility
+   - Part 2: Transcription Processing
+     - Convert conversations to transcriptions
+     - Maintain all conversation context
+     - Prepare for pipeline integration
 
-4. [💤] LLM Integration & Organization
-   - Location: .milestone/04-llm.plan
+4. [⏳] Pipeline & Summarization
+   - Location: .milestone/04-pipeline.plan
+   - Description: Implement pipeline architecture and conversation summarization
+   - Components:
+     - Move transcription into pipeline
+     - Add summarization stage
+     - Add title generation
+     - Implement storage stage
+
+5. [💤] LLM Integration & Organization
+   - Location: .milestone/05-llm.plan
    - Description: Summary and title generation
 
-5. [💤] Deployment & Testing
-   - Location: .milestone/05-deployment.plan
+6. [💤] Deployment & Testing
+   - Location: .milestone/06-deployment.plan
    - Description: Mac testing and Ubuntu deployment prep
 
 ### 🎨 Project Status Indicators
@@ -93,6 +154,13 @@ Create an always-on audio recording system that captures, transcribes, and organ
 2. Use debug tools to verify audio processing
 3. Integration testing with small conversation samples
 4. Full system testing with extended recording periods
+
+## Progress Updates
+2024-12-08: Completed Milestone 2 (VAD)
+- Successfully integrated Silero VAD with real-time audio processing
+- Implemented visualization tools for audio and speech detection
+- Verified accuracy with live testing
+- Ready to proceed with Milestone 3 (Transcription)
 
 ## WIP Notes
 - we've set up venv 

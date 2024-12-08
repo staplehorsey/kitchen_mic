@@ -274,35 +274,35 @@ def main():
     
     try:
         # Initialize components
-        vad = VADProcessor()
+        vad = VADProcessor(VADConfig())
         viz = VADVisualizer()
-        player = AudioPlayer()
+        
+        # Create audio capture first to get sample rate
+        capture = AudioCapture(host="staple.local")
+        player = AudioPlayer(sample_rate=capture.sample_rate)
         viz.set_audio_player(player)
         
-        # Start audio capture
-        def on_data(original_chunk: np.ndarray, downsampled_chunk: np.ndarray):
+        # Set up audio callback
+        def handle_audio(timestamp: float, original: np.ndarray, downsampled: np.ndarray):
             """Process captured audio data."""
             try:
                 # Add audio to VAD
-                vad.add_audio(downsampled_chunk)
+                vad.add_audio(downsampled)
                 
                 # Get VAD state
                 state = vad.get_state()
                 
                 # Update visualization
-                viz.add_data(original_chunk, state)
+                viz.add_data(original, state)
                 
                 # Play audio
-                player.play(original_chunk)
+                player.play(original)
                 
             except Exception as e:
                 logger.error(f"Error processing audio: {e}")
         
-        # Create and start audio capture
-        capture = AudioCapture(
-            host="staple.local",
-            on_data=on_data
-        )
+        # Register callback and start capture
+        capture.add_callback(handle_audio)
         capture.start()
         
         # Start visualization
@@ -310,18 +310,33 @@ def main():
         viz.show()
         
     except Exception as e:
-        logger.error(f"Error in main: {e}")
+        logger.error(f"Error in main: {e}", exc_info=True)
     finally:
         logger.info("Cleaning up...")
         # Clean up components
         if capture:
-            capture.stop()
+            try:
+                capture.stop()
+            except Exception as e:
+                logger.error(f"Error stopping capture: {e}")
+        
         if vad:
-            vad.stop()
+            try:
+                vad.stop()
+            except Exception as e:
+                logger.error(f"Error stopping VAD: {e}")
+        
         if player:
-            player.stop()
+            try:
+                player.stop()
+            except Exception as e:
+                logger.error(f"Error stopping player: {e}")
+        
         if viz:
-            viz.cleanup()
+            try:
+                viz.cleanup()
+            except Exception as e:
+                logger.error(f"Error cleaning up visualizer: {e}")
 
 if __name__ == "__main__":
     main()
