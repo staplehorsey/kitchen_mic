@@ -12,6 +12,7 @@ from dataclasses import dataclass
 import threading
 import collections
 from queue import Queue, Empty, Full
+import datetime
 
 import numpy as np
 import torch
@@ -30,23 +31,25 @@ class VADConfig:
     threshold: float = 0.3  # Speech probability threshold
     window_size_samples: int = 512  # Window size in samples (must be 512 for 16kHz)
     min_speech_duration_ms: int = 250  # Minimum speech duration
-    min_silence_duration_ms: int = 10000  # Minimum silence duration
+    min_silence_duration_ms: int = 3000  # Cooldown period for speech (3 seconds)
     speech_pad_ms: int = 100  # Padding around speech segments
     sample_rate: int = 16000  # Expected sample rate
     
     # Conversation detection parameters
     conversation_window_sec: float = 10.0  # Window to aggregate speech probabilities
     conversation_threshold: float = 0.3  # Threshold for conversation detection
-    conversation_cooldown_sec: float = 30.0  # Cooldown period before ending conversation
+    conversation_cooldown_sec: float = 15.0  # End conversation after 15 seconds of silence
     min_conversation_duration_sec: float = 5.0  # Minimum duration to consider it a conversation
 
 class VADState(NamedTuple):
     """Current state of voice activity detection."""
-    speech_probability: float  # Current speech probability
-    is_speech: bool  # Whether speech is currently detected
-    is_conversation: bool  # Whether a conversation is active
-    conversation_start: Optional[float]  # Start time of current conversation
-    conversation_end: Optional[float]  # End time of current conversation
+    speech_probability: float
+    is_speech: bool
+    is_conversation: bool
+    conversation_start: Optional[float]  # When conversation was officially started (after 5s of speech)
+    conversation_end: Optional[float]    # When conversation ended (after 15s of no speech)
+    first_speech_time: Optional[float]   # When first speech was detected
+    last_speech_time: Optional[float]    # When last speech was detected
     speech_segments: List[Tuple[float, float]]  # List of (start_time, duration) for speech segments
 
 class VADProcessor:
@@ -74,11 +77,12 @@ class VADProcessor:
         
         # Processing state
         self._speech_started = False
-        self._speech_start_time = 0.0
-        self._last_speech_end_time = 0.0
+        self._speech_start_time = None
+        self._last_speech_end_time = None
         self._conversation_started = False
-        self._conversation_start_time = 0.0
-        self._last_speech_prob_time = 0.0
+        self._conversation_start_time = None
+        self._last_speech_prob_time = None
+        self._first_speech_time = None
         
         # Input queue and processing thread
         self._input_queue = Queue(maxsize=100)
@@ -92,7 +96,7 @@ class VADProcessor:
         self._recent_probs = collections.deque(maxlen=100)
         self._conversation_probs = collections.deque(maxlen=window_size)
         self._speech_segments = []
-        self._current_state = VADState(0.0, False, False, None, None, [])
+        self._current_state = VADState(0.0, False, False, None, None, None, None, [])
         
         # Audio buffer for VAD processing
         self._audio_buffer = collections.deque(maxlen=self.config.window_size_samples * 4)  # Allow for larger buffer
@@ -174,63 +178,113 @@ class VADProcessor:
                     # Update probability windows
                     self._recent_probs.append((current_time, prob))
                     self._conversation_probs.append(prob)
-                    self._last_speech_prob_time = current_time
                     
-                    # Calculate conversation probability
-                    if self._conversation_probs:
-                        weights = np.linspace(0.5, 1.0, len(self._conversation_probs))
-                        conversation_prob = np.average(list(self._conversation_probs), weights=weights)
-                    else:
-                        conversation_prob = 0
+                    # Update speech detection state
+                    first_speech_time = None
+                    if prob >= self.config.threshold:
+                        # Speech detected
+                        if not self._speech_started:
+                            self._speech_started = True
+                            self._speech_start_time = current_time
+                            if not self._first_speech_time:
+                                self._first_speech_time = current_time
+                                first_speech_time = current_time
+                        self._last_speech_prob_time = current_time
+                    elif self._speech_started:
+                        # Check if silence duration exceeds cooldown
+                        silence_duration = current_time - self._last_speech_prob_time
+                        if silence_duration >= self.config.min_silence_duration_ms / 1000:
+                            # End speech segment
+                            speech_duration = current_time - self._speech_start_time
+                            if speech_duration >= self.config.min_speech_duration_ms / 1000:
+                                self._speech_segments.append((self._speech_start_time, speech_duration))
+                            self._speech_started = False
+                            self._last_speech_end_time = current_time
                     
                     # Update conversation state
                     conversation_start = None
                     conversation_end = None
                     
                     if not self._conversation_started:
-                        if conversation_prob >= self.config.conversation_threshold:
-                            self._conversation_started = True
-                            self._conversation_start_time = current_time
-                            conversation_start = current_time
-                            logger.info(f"Conversation started at {current_time}")
+                        # Check continuous speech duration
+                        if self._first_speech_time and not self._conversation_start_time:
+                            speech_duration = current_time - self._first_speech_time
+                            if speech_duration >= self.config.min_conversation_duration_sec:
+                                self._conversation_started = True
+                                self._conversation_start_time = self._first_speech_time  # Start from first speech
+                                conversation_start = self._conversation_start_time
+                                logger.info(f"Conversation started at {datetime.datetime.fromtimestamp(self._conversation_start_time).strftime('%H:%M:%S')}")
                     else:
-                        time_since_last_speech = current_time - self._last_speech_prob_time
-                        conversation_duration = current_time - self._conversation_start_time
+                        # Check if we should end the conversation
+                        silence_duration = current_time - self._last_speech_prob_time
                         
-                        if conversation_prob < self.config.conversation_threshold:
-                            if time_since_last_speech >= self.config.conversation_cooldown_sec:
-                                if conversation_duration >= self.config.min_conversation_duration_sec:
-                                    logger.info(f"Conversation ended at {current_time}")
-                                    self._conversation_started = False
-                                    conversation_end = current_time
-                    
-                    # Update speech detection state
-                    new_segments = []
-                    if prob >= self.config.threshold:
-                        if not self._speech_started:
-                            self._speech_started = True
-                            self._speech_start_time = current_time
-                    elif self._speech_started:
-                        speech_duration = current_time - self._speech_start_time
-                        if speech_duration >= self.config.min_speech_duration_ms / 1000:
-                            new_segments.append((self._speech_start_time, speech_duration))
-                        self._speech_started = False
-                        self._last_speech_end_time = current_time
+                        # End conversation after consecutive silence
+                        if silence_duration >= self.config.conversation_cooldown_sec:
+                            if self._conversation_start_time:
+                                logger.info(f"Conversation ended at {datetime.datetime.fromtimestamp(current_time).strftime('%H:%M:%S')}")
+                                self._conversation_started = False
+                                conversation_end = current_time
+                                self._conversation_start_time = None
+                                # Reset first speech time for next conversation
+                                self._first_speech_time = None
                     
                     # Update current state atomically
                     with self._lock:
-                        self._speech_segments.extend(new_segments)
+                        last_speech = None
+                        if self._speech_started:
+                            last_speech = self._last_speech_prob_time
+                        elif self._last_speech_end_time:
+                            last_speech = self._last_speech_end_time
+                            
                         self._current_state = VADState(
                             speech_probability=prob,
                             is_speech=self._speech_started,
                             is_conversation=self._conversation_started,
-                            conversation_start=self._conversation_start_time if self._conversation_started else None,
+                            conversation_start=self._conversation_start_time,
                             conversation_end=conversation_end,
-                            speech_segments=list(self._speech_segments)  # Copy to avoid external modification
+                            first_speech_time=first_speech_time,
+                            last_speech_time=last_speech,
+                            speech_segments=list(self._speech_segments)
                         )
             except Exception as e:
                 logger.error(f"Error processing audio chunk: {e}")
                 # Keep the state as is and continue processing
+    
+    def _process_speech_state(self, is_speech: bool, current_time: float):
+        """Process speech state changes and update conversation tracking."""
+        if is_speech:
+            # Update speech timing
+            if not self._speech_start_time:
+                self._speech_start_time = current_time
+                logger.info(f"First speech detected at {datetime.datetime.fromtimestamp(current_time).strftime('%H:%M:%S')}")
+            
+            self._last_speech_prob_time = current_time
+            self._silence_duration = 0.0
+            
+            if not self._conversation_started:
+                # Check if we've had enough continuous speech
+                self._speech_duration = current_time - self._speech_start_time
+                if self._speech_duration >= self.config.min_conversation_duration_sec:
+                    self._conversation_started = True
+                    self._conversation_start_time = self._speech_start_time  # Use first speech time
+                    logger.info(f"Conversation started at {datetime.datetime.fromtimestamp(self._conversation_start_time).strftime('%H:%M:%S')}")
+        else:
+            # Update silence timing
+            if self._last_speech_prob_time:
+                self._silence_duration = current_time - self._last_speech_prob_time
+                
+                # Check if silence threshold reached
+                if self._conversation_started and self._silence_duration >= self.config.conversation_cooldown_sec:
+                    self._conversation_end = current_time
+                    logger.info(f"Conversation ended at {datetime.datetime.fromtimestamp(current_time).strftime('%H:%M:%S')}")
+                    
+                    # Reset state for next conversation
+                    self._conversation_started = False
+                    self._speech_start_time = None
+                    self._conversation_start_time = None
+                    self._last_speech_prob_time = None
+                    self._speech_duration = None
+                    self._silence_duration = None
     
     def stop(self) -> None:
         """Stop the processor and clean up."""
@@ -254,4 +308,4 @@ class VADProcessor:
             self._recent_probs.clear()
             self._conversation_probs.clear()
             self._speech_segments.clear()
-            self._current_state = VADState(0.0, False, False, None, None, [])
+            self._current_state = VADState(0.0, False, False, None, None, None, None, [])

@@ -49,10 +49,54 @@ Progress Updates:
   - Improved speech segment joining logic
   - Fixed issues with cross-chunk speech detection
 
+2024-12-08T01:31:01-05:00:
+- 🔄 VAD Visualization Improvements:
+  - Fixed animation cleanup and recursion issues
+  - Added proper resource management for matplotlib
+  - Implemented conversation timeline tracking
+  - Added debug logging for conversation events
+- 🐛 Issues identified:
+  - Timeline shows decimal timestamps instead of formatted time
+  - Need to standardize timestamp formatting across components
+  - Improve visualization of conversation states
+
+2024-12-08T01:33:36-05:00:
+- 🎯 Conversation Timeline Requirements:
+  - Show distinct states with different colors:
+    1. First speech detection (yellow)
+    2. Conversation start (5s continuous speech) (green)
+    3. Speech end (red)
+    4. Conversation end (15s no speech) (gray)
+  - Display 3-minute history from first speech
+  - Auto-end conversations after 15s silence
+  - Improve timeline readability with clear state transitions
+
+2024-12-08T01:36:38-05:00:
+- 🔄 Timeline Visualization Requirements:
+  - Real-time state transition updates:
+    1. Immediate vertical line on conversation start
+    2. Update visualization when conversation ends
+    3. Continuous animation between state changes
+  - Human-readable time format (HH:MM:SS)
+  - Clear visual markers for state transitions:
+    - Speech detection → vertical yellow line
+    - Conversation start (5s) → vertical green line
+    - Speech end → vertical red line
+    - Conversation end (15s) → vertical gray line
+  - Timeline should show:
+    - 3 minutes of history from first speech
+    - Current state with continuous updates
+    - Future buffer of 30 seconds
+  - State colors and meanings:
+    - Yellow: Initial speech detection
+    - Green: Active conversation
+    - Red: Speech end markers
+    - Gray: Conversation end period
+
 # Milestone 2: Voice Activity Detection (VAD)
 
 ## Status: In Progress
-Last Updated: 2024-12-07
+Last Updated: 2024-12-08
 
 ## Goals
 - [x] Implement real-time voice activity detection
@@ -60,6 +104,28 @@ Last Updated: 2024-12-07
 - [x] Add audio playback with mute control
 - [x] Decouple audio playback from visualization
 - [x] Ensure smooth performance and synchronization
+
+## Current Focus
+We are implementing a sophisticated conversation detection system with:
+1. Real-time state visualization:
+   - Immediate updates on state transitions
+   - Clear visual markers for each state change
+   - Continuous animation between updates
+2. Time tracking:
+   - Human-readable timestamps (HH:MM:SS)
+   - 3-minute history buffer
+   - 30-second future window
+3. State transitions:
+   - First speech → yellow marker
+   - 5s continuous speech → green conversation marker
+   - Speech end → red marker
+   - 15s silence → gray conversation end
+
+This visualization helps us:
+1. Monitor conversation detection in real-time
+2. Verify state transition timing
+3. Debug speech detection accuracy
+4. Fine-tune conversation parameters
 
 ## Current Implementation
 
