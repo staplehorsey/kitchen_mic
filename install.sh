@@ -16,10 +16,21 @@ error() {
     exit 1
 }
 
-# Check if we're on Ubuntu
-if ! grep -q 'Ubuntu' /etc/os-release; then
-    error "This script is designed for Ubuntu only"
-fi
+# Check Ubuntu version
+check_ubuntu_version() {
+    if ! grep -q 'Ubuntu' /etc/os-release; then
+        error "This script is designed for Ubuntu only"
+    fi
+    
+    # Get Ubuntu version
+    ubuntu_version=$(grep -oP 'VERSION_ID="\K[^"]+' /etc/os-release)
+    log "Detected Ubuntu version: $ubuntu_version"
+    
+    # Warn if using development version
+    if [[ "$ubuntu_version" == "24.04" ]]; then
+        log "Note: Running on Ubuntu 24.04 (development version). Some packages might need alternative installation methods."
+    fi
+}
 
 # Create kitchen_mic user
 create_user() {
@@ -44,7 +55,7 @@ install_system_deps() {
         python3-pip \
         python3-venv \
         python3-dev \
-        python3-distutils \
+        python3-setuptools \
         portaudio19-dev \
         libsndfile1 \
         ffmpeg \
@@ -120,6 +131,7 @@ EOL
 main() {
     log "Starting Kitchen Mic installation..."
     
+    check_ubuntu_version
     create_user
     install_system_deps
     setup_venv
