@@ -4,7 +4,7 @@
 storage:
   # Primary storage location (will try USB drives first)
   # This will be overridden by USB storage if available
-  base_path: "/media/matthias/data/kitchen_mic_data"
+  base_dir: "/media/matthias/data/kitchen_mic_data"
   # Minimum free space required (in GB)
   min_free_space_gb: 10
   # Maximum storage usage (in GB, 0 for unlimited)

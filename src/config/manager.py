@@ -174,17 +174,13 @@ class ConfigManager:
     def _validate_storage_config(self) -> None:
         """Validate storage configuration."""
         storage_config = self.config.get('storage', {})
-        base_path = Path(storage_config.get('base_dir', ''))
-        
-        # Create storage directory if it doesn't exist
-        try:
-            base_path.mkdir(parents=True, exist_ok=True)
-            # Ensure directory has correct permissions
-            os.system(f'sudo chown -R kitchen_mic:kitchen_mic {base_path}')
-            os.system(f'sudo chmod -R 755 {base_path}')
-        except Exception as e:
-            logging.error(f"Failed to create or set permissions on storage directory {base_path}: {e}")
-            raise ValueError(f"Storage directory {base_path} is not accessible")
+        if 'base_dir' not in storage_config:
+            raise ValueError("Missing required 'base_dir' in storage config")
+            
+        base_path = Path(storage_config['base_dir'])
+        if not base_path.exists():
+            logging.error(f"Storage directory {base_path} does not exist")
+            raise ValueError(f"Storage directory {base_path} does not exist. Please run install.sh to set it up.")
 
         # Validate directory is writable
         test_file = base_path / '.write_test'
@@ -193,7 +189,7 @@ class ConfigManager:
             test_file.unlink()
         except Exception as e:
             logging.error(f"Storage directory {base_path} is not writable: {e}")
-            raise ValueError(f"Storage directory {base_path} is not writable")
+            raise ValueError(f"Storage directory {base_path} is not writable. Please check permissions.")
 
         logging.info(f"Storage directory {base_path} is valid and writable")
 
