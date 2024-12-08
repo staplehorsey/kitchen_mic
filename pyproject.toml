@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kitchen_mic"
+version = "0.1.0"
+description = "Kitchen Mic - Audio Conversation Recorder"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "sounddevice",
+    "soundfile",
+    "openai-whisper",
+    "pyyaml",
+    "requests",
+]
+
+[tool.setuptools]
+packages = ["src"]

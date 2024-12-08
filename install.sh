@@ -125,8 +125,10 @@ setup_venv() {
     # Install dependencies and package
     cd /opt/kitchen_mic
     sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install --upgrade pip
+    sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install "setuptools>=68.0.0" wheel
     sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install -r requirements.txt
     sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install -e .
+    cd - >/dev/null
 }
 
 # Install Kitchen Mic
