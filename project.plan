@@ -1,0 +1,99 @@
+# Kitchen Mic Project Plan 🎙️
+Last Updated: 2024-12-07T19:53:48-05:00
+
+## Project goals
+Create an always-on audio recording system that captures, transcribes, and organizes conversations with high-fidelity audio preservation.
+
+### 🔧 LLM Instructions
+- Read this entire plan first
+- Load relevant milestone context from .milestone/<milestone_id>.plan
+- Track current progress using emoji states
+- Update milestone status after each significant change
+- Always refer back to this plan for project context
+- Verify the completion of each step before proceeding to the next
+- At the end of every response write a few word summary of the current goal, so I know if these instructions are still in context or if we need to refresh
+- Before implmenting a new step, read the milesone doc stop (even if you have already) and ask for input on the approach for the task you're taking
+- after we complete a task update the relevent plan files
+
+### 📋 Development Guidelines
+- Strive for simplicity over convention
+- Use good epistemology, do not make assumptions you cannot verify 
+- Avoid midwit cargo culted development patterns without a clear reason
+- Write modular code in small files with brief doc comments
+- Keep the .plan and .milestone updated after every step
+- Write logs with timestamps and context
+- During debugging, update plan and review previous steps
+- don't write unit tests instead write little tools to manually run
+
+### 🛠️ Project Tools
+- Language: Python
+- Audio Processing: librosa, Silero VAD
+- Transcription: Whisper
+- LLM: Llama 7b (http://rat.local:8080/v1/)
+- Audio Source: staple.local:12345 (44Hz raw audio)
+
+### 🎯 Project Milestones
+1. [✨] Project Setup & Audio Pipeline
+   - Location: .milestone/01-setup.plan
+   - Description: Initial setup, dual-stream audio pipeline, and debug tools
+   
+2. [🏃] Voice Activity Detection
+   - Location: .milestone/02-vad.plan
+   - Description: Silero VAD integration with downsampled audio
+   - Status: Testing with live audio and tuning parameters
+
+3. [💤] Transcription System
+   - Location: .milestone/03-transcription.plan
+   - Description: Whisper integration and file management
+
+4. [💤] LLM Integration & Organization
+   - Location: .milestone/04-llm.plan
+   - Description: Summary and title generation
+
+5. [💤] Deployment & Testing
+   - Location: .milestone/05-deployment.plan
+   - Description: Mac testing and Ubuntu deployment prep
+
+### 🎨 Project Status Indicators
+- ✨ Completed
+- 🏃 In Progress
+- 🐛 Debugging/Troubleshooting
+- 💤 Not Started
+- 🎉 Milestone Achieved
+
+### 📁 File Structure
+/kitchen_mic
+├── src/
+│   ├── audio/          # Audio processing modules
+│   ├── transcription/  # Whisper integration
+│   ├── vad/           # Voice activity detection
+│   ├── llm/           # LLM integration
+│   └── utils/         # Shared utilities
+├── debug/             # Debug tools and audio monitoring
+├── storage/          
+│   ├── raw/          # High fidelity audio storage
+│   └── processed/    # Transcriptions and summaries
+└── config/           # Configuration files
+
+### 🔑 Key Technical Requirements
+- Maintain two audio streams:
+  1. Original 44Hz high-fidelity audio for storage
+  2. Downsampled 16kHz audio for Silero VAD
+- Debug capabilities:
+  - Real-time audio monitoring
+  - Switch between original and downsampled audio
+  - Visual audio stream indicators
+- Data persistence:
+  - Date-based folder structure
+  - Original audio preservation
+  - Transcriptions and summaries
+
+### 📝 Development Workflow
+1. Implement and test each component in isolation
+2. Use debug tools to verify audio processing
+3. Integration testing with small conversation samples
+4. Full system testing with extended recording periods
+
+## WIP Notes
+- we've set up venv 
+- our shell does not have source so we need to use the full path to the venv bin

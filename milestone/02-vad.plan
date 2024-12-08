@@ -1,0 +1,184 @@
+#### Milestone 2: Voice Activity Detection
+Status: 🏃 In Progress
+Description: Integrate Silero VAD for accurate speech detection
+How this supports the larger project: Enables precise identification of speech segments for transcription
+
+Progress Updates:
+2024-12-07T21:53:29-05:00: Milestone file created
+- 🎯 Initial goals:
+  - Set up Silero VAD integration
+  - Process downsampled 16kHz audio stream (from Milestone 1)
+  - Implement configurable VAD parameters
+  - Create debug visualization tools
+
+2024-12-07T21:59:19-05:00:
+- ✅ Initial implementation complete:
+  - Created VAD processor module
+  - Added real-time visualization
+  - Set up configurable parameters
+  - Integrated with audio capture from Milestone 1
+- 🐛 Issues identified:
+  - Silero VAD model URL outdated
+  - Fixed URL to use silero-models repository
+  - Need to verify model download and inference
+
+2024-12-07T22:02:10-05:00:
+- 📝 Project restructure:
+  - Moved from Milestone 3 to Milestone 2
+  - Audio processing tools completed in Milestone 1
+  - Updated dependencies on previous milestones
+
+2024-12-07T22:07:37-05:00:
+- 🔄 Implementation updated:
+  - Switched to official silero-vad package
+  - Removed ONNX runtime dependency
+  - Added PyTorch-based inference
+  - Updated requirements.txt
+
+2024-12-07T22:10:00-05:00:
+- 🔄 Milestone documentation updated:
+  - Updated status to reflect current progress
+  - Added detailed implementation notes
+  - Outlined next steps and technical notes
+
+# Milestone 2: Voice Activity Detection (VAD)
+
+## Status: In Progress
+Last Updated: 2024-12-07
+
+## Goals
+- [x] Implement real-time voice activity detection
+- [x] Create visualization for audio and VAD output
+- [x] Add audio playback with mute control
+- [x] Decouple audio playback from visualization
+- [x] Ensure smooth performance and synchronization
+
+## Current Implementation
+
+### Components
+1. **AudioCapture**
+   - Real-time audio capture from microphone
+   - Configurable sample rate and chunk size
+   - Timestamp tracking for synchronization
+
+2. **AudioPlayer**
+   - Real-time audio playback
+   - Thread-safe mute toggle
+   - Maintains timing even when muted
+   - Lazy stream initialization for better resource management
+
+3. **VADProcessor**
+   - Uses Silero VAD model
+   - Configurable threshold and timing parameters
+   - Real-time voice activity detection
+
+4. **VADVisualizer**
+   - Real-time visualization of audio waveform and VAD probability
+   - Synchronized with audio playback
+   - Smooth animation with proper timing
+   - Interactive controls (mute toggle, quit)
+
+### Key Features
+- Real-time audio processing and visualization
+- Decoupled audio playback from visualization
+- Thread-safe operations with proper synchronization
+- Mute toggle for testing without audio feedback
+- Proper resource cleanup and error handling
+
+## Next Steps
+1. Test with different voice inputs and environments
+2. Fine-tune VAD parameters for optimal performance
+3. Add configuration options for visualization
+4. Consider adding recording capability for testing
+5. Implement voice command detection
+
+## Technical Notes
+- Using sounddevice for audio I/O
+- Matplotlib for real-time visualization
+- Silero VAD for voice detection
+- Thread-safe design with proper locking
+- Timestamp-based synchronization
+
+## Known Issues
+- Audio playback not working properly in visualization after recent decoupling changes
+  - Visualization continues to update but audio output is not functioning
+  - Investigation ongoing - may be related to recent stream initialization changes
+  - Priority: High
+- None currently blocking
+
+## Dependencies
+- Python 3.11+
+- numpy
+- sounddevice
+- matplotlib
+- torch (for Silero VAD)
+- queue
+- threading
+
+## Testing Notes
+- Test with both recorded and live audio
+- Verify mute functionality works smoothly
+- Check visualization remains synchronized
+- Monitor CPU/memory usage during extended runs
+
+Technical Requirements:
+- Use Silero VAD with PyTorch
+- Process 16kHz mono audio (from Milestone 1 pipeline)
+- Support real-time VAD processing
+- Configurable parameters:
+  - Threshold (0.0 to 1.0)
+  - Window size (ms)
+  - Min/max speech duration
+  - Min silence duration
+
+Implementation Status:
+1. VAD Setup [✅ Done]
+   - [x] Set up PyTorch runtime
+   - [x] Create VAD wrapper class
+   - [x] Install silero-vad package
+   - [x] Test model inference
+
+2. Audio Processing [✅ Done]
+   - [x] Buffer management for VAD window
+   - [x] Sliding window processing
+   - [x] Speech/silence state tracking
+
+3. Debug Tools [✅ Done]
+   - [x] Real-time VAD visualization
+   - [x] Speech probability plotting
+   - [x] State transition logging
+
+4. Integration [🏃 In Progress]
+   - [x] Connect to audio capture pipeline
+   - [x] Implement event callbacks
+   - [x] Add configuration interface
+   - [ ] Test with live audio
+
+Tasks:
+- [x] Set up VAD dependencies
+  - [x] Add torch and torchaudio to requirements.txt
+  - [x] Add silero-vad package
+  - [x] Test model loading
+- [x] Create VAD module
+  - [x] Implement VADProcessor class
+  - [x] Add configuration options
+  - [x] Set up audio buffer handling
+- [x] Create debug tools
+  - [x] Add real-time visualization
+  - [x] Implement state logging
+- [ ] Test and validation
+  - [ ] Test with recorded samples
+  - [ ] Validate real-time performance
+  - [ ] Tune parameters
+
+Debug Notes:
+- Using 16kHz mono audio from Milestone 1 capture
+- Audio chunk sizes aligned with VAD window
+- Switched to official silero-vad package for better compatibility
+- Next: Test with live audio and tune parameters
+
+Next Steps:
+1. Test VAD with live audio input
+2. Tune parameters for optimal speech detection
+3. Add error handling for audio stream issues
+4. Document performance characteristics
