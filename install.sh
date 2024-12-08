@@ -179,38 +179,30 @@ setup_storage() {
     # Add required packages
     log "Installing required packages..."
     sudo apt-get update
-    sudo apt-get install -y udisks2 acl
+    sudo apt-get install -y gvfs gvfs-fuse
     
     # Add kitchen_mic to required groups
     log "Adding kitchen_mic to required groups..."
-    sudo usermod -a -G plugdev,audio kitchen_mic
+    sudo usermod -a -G plugdev kitchen_mic
     
-    # Create storage directory with proper udisks2 permissions
+    # Create storage directory
     STORAGE_DIR="/media/matthias/data/kitchen_mic_data"
     log "Creating storage directory at $STORAGE_DIR..."
-    
-    # Create with standard udisks2 permissions
     sudo mkdir -p "$STORAGE_DIR"
-    sudo chown :plugdev "$STORAGE_DIR"
-    sudo chmod g+rwx "$STORAGE_DIR"
     
-    # Set default group for new files
-    sudo chmod g+s "$STORAGE_DIR"
+    # Set up GVFS mount access
+    log "Setting up GVFS access..."
+    # Add kitchen_mic to necessary groups for GVFS
+    sudo usermod -a -G plugdev,audio kitchen_mic
     
-    # Add udisks2 rule for our directory
-    log "Setting up udisks2 rules..."
-    sudo tee /etc/udev/rules.d/99-kitchen-mic.rules > /dev/null << EOL
-# Give plugdev group access to our storage directory
-ENV{ID_FS_USAGE}=="filesystem", ENV{UDISKS_FILESYSTEM_SHARED}="1"
-EOL
+    # Create GVFS mount point for kitchen_mic
+    sudo -u kitchen_mic mkdir -p "/run/user/$(id -u kitchen_mic)/gvfs"
+    sudo -u kitchen_mic mkdir -p "/run/user/$(id -u kitchen_mic)/media"
     
-    # Reload udev rules
-    sudo udevadm control --reload-rules
-    sudo udevadm trigger
-    
-    # Remount the drive with proper permissions
-    log "Remounting drive with new permissions..."
-    sudo mount -o remount,gid=plugdev,umask=002 /dev/sdc /media/matthias/data
+    # Set directory permissions
+    log "Setting directory permissions..."
+    sudo chown -R kitchen_mic:kitchen_mic "$STORAGE_DIR"
+    sudo chmod -R 755 "$STORAGE_DIR"
     
     # Debug: Show current mount and permissions
     log "Current mount info:"
@@ -226,6 +218,11 @@ EOL
         log "Storage permissions verified"
     else
         error "Failed to create test file"
+        # Debug output
+        log "Current process info:"
+        ps aux | grep gvfs
+        log "GVFS mounts:"
+        sudo -u kitchen_mic gvfs-mount -l
         exit 1
     fi
 }
