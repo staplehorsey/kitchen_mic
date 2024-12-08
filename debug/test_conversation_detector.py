@@ -74,6 +74,7 @@ def main():
         audio_processor=audio,
         vad_processor=vad,
         buffer_duration_sec=10.0,
+        pre_speech_sec=3.0,  # Capture 3s before first speech
         on_conversation=on_conversation
     )
     
@@ -110,10 +111,27 @@ def main():
     except KeyboardInterrupt:
         logger.info("Stopping...")
     finally:
-        audio.stop()
-        vad.stop()
-        if viz:
-            viz.cleanup()
+        # Clean up components in reverse order
+        try:
+            if viz and hasattr(viz, 'cleanup') and hasattr(viz, 'anim') and viz.anim and viz.anim.event_source:
+                viz.cleanup()
+        except Exception as e:
+            logger.error(f"Error cleaning up visualization: {e}")
+        
+        try:
+            audio.stop()
+        except Exception as e:
+            logger.error(f"Error stopping audio: {e}")
+        
+        try:
+            vad.stop()
+        except Exception as e:
+            logger.error(f"Error stopping VAD: {e}")
+        
+        try:
+            detector.stop()
+        except Exception as e:
+            logger.error(f"Error stopping detector: {e}")
 
 if __name__ == "__main__":
     main()

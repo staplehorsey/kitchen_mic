@@ -57,6 +57,7 @@ class ConversationDetector:
         audio_processor: AudioProcessor,
         vad_processor: VADProcessor,
         buffer_duration_sec: float = 30.0,
+        pre_speech_sec: float = 3.0,  # Capture 3s before first speech
         on_conversation: Optional[Callable[[ConversationMessage], None]] = None
     ):
         """Initialize conversation detector.
@@ -65,6 +66,7 @@ class ConversationDetector:
             audio_processor: Any audio processor that provides callbacks
             vad_processor: Any VAD processor that can process audio
             buffer_duration_sec: Duration to buffer audio before conversation (default: 30s)
+            pre_speech_sec: Seconds of audio to keep before first speech (default: 3s)
             on_conversation: Optional callback for detected conversations
         """
         self.audio_processor = audio_processor
@@ -73,6 +75,7 @@ class ConversationDetector:
         
         # Calculate buffer sizes
         self.buffer_duration = buffer_duration_sec
+        self.pre_speech_duration = pre_speech_sec
         samples_per_sec = self.audio_processor.sample_rate
         self.buffer_samples = int(buffer_duration_sec * samples_per_sec)
         
@@ -85,7 +88,7 @@ class ConversationDetector:
         self._current_audio = []  # Only grows during active conversation
         self._conversation_start = None
         
-        logger.info("Conversation detector initialized")
+        logger.info(f"Conversation detector initialized with {pre_speech_sec}s pre-speech buffer")
     
     def _handle_audio(self, timestamp: float, original_chunk: np.ndarray, downsampled_chunk: np.ndarray) -> None:
         """Handle incoming audio data from capture.
@@ -125,20 +128,21 @@ class ConversationDetector:
             
             # Calculate how many samples to keep from buffer based on first speech
             if vad_state.first_speech_time is not None:
-                samples_since_speech = int((current_time - vad_state.first_speech_time) * self.audio_processor.sample_rate)
-                buffer_list = list(self._audio_buffer)
+                # Keep pre_speech_duration seconds before first speech
+                buffer_start_time = vad_state.first_speech_time - self.pre_speech_duration
+                samples_to_keep = int((current_time - buffer_start_time) * self.audio_processor.sample_rate)
                 
-                # Take only samples since first speech
-                if samples_since_speech < len(buffer_list):
-                    self._current_audio = buffer_list[-samples_since_speech:]
+                buffer_list = list(self._audio_buffer)
+                if samples_to_keep < len(buffer_list):
+                    self._current_audio = buffer_list[-samples_to_keep:]
                 else:
                     self._current_audio = buffer_list
                     
-                logger.debug(f"Captured {len(self._current_audio)/self.audio_processor.sample_rate:.1f}s of audio since first speech at {vad_state.first_speech_time}")
+                logger.debug(f"Captured {len(self._current_audio)/self.audio_processor.sample_rate:.1f}s of audio including {self.pre_speech_duration}s before first speech at {vad_state.first_speech_time}")
             else:
                 # Fallback if no first_speech_time
                 self._current_audio = list(self._audio_buffer)
-                logger.warning("No first_speech_time available, using full buffer")
+                logger.debug(f"No first speech time, using entire buffer ({len(self._current_audio)} samples)")
         
         # End conversation when VAD says conversation is over
         if self._conversation_start and not vad_state.is_conversation:
