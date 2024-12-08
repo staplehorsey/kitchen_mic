@@ -173,7 +173,7 @@ class KitchenMicService:
 def main() -> None:
     """Main entry point for the service."""
     parser = argparse.ArgumentParser(description="Kitchen Mic Service Manager")
-    parser.add_argument('command', choices=['start', 'stop', 'restart'],
+    parser.add_argument('command', choices=['start', 'stop', 'restart', 'health'],
                        help="Command to execute")
     parser.add_argument('--config', help="Path to config file")
     args = parser.parse_args()
@@ -181,7 +181,27 @@ def main() -> None:
     service = KitchenMicService(args.config)
     
     try:
-        if args.command == 'start':
+        if args.command == 'health':
+            # Print config and check components
+            print("\nCurrent Configuration:")
+            print("----------------------")
+            for section, values in service.config.items():
+                print(f"\n[{section}]")
+                for key, value in values.items():
+                    print(f"{key}: {value}")
+            
+            print("\nComponent Status:")
+            print("----------------")
+            status = {
+                "config": "OK" if service.config else "Not loaded",
+                "audio_source": "Connected" if service.config_manager.check_audio_source() else "Not connected",
+                "llm_endpoint": "Connected" if service.config_manager.check_llm_endpoint() else "Not connected",
+                "storage": "OK" if os.path.exists(service.config['storage']['base_dir']) else "Not available"
+            }
+            for component, state in status.items():
+                print(f"{component}: {state}")
+            sys.exit(0)
+        elif args.command == 'start':
             service.start()
         elif args.command == 'stop':
             service.stop()

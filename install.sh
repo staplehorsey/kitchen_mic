@@ -58,6 +58,12 @@ cleanup() {
         sudo rm -rf /etc/kitchen_mic
     fi
     
+    # Remove log directory
+    if [ -d /var/log/kitchen_mic ]; then
+        warn "Removing log directory..."
+        sudo rm -rf /var/log/kitchen_mic
+    fi
+    
     # Don't remove the user by default as it might be used by other services
     warn "Note: The kitchen_mic user was not removed. To remove it manually, run:"
     warn "  sudo userdel -r kitchen_mic"
@@ -151,6 +157,10 @@ EOL
     sudo chown -R kitchen_mic:kitchen_mic /etc/kitchen_mic
     sudo chmod 644 /etc/kitchen_mic/config.yaml
     
+    # Create log directory
+    sudo mkdir -p /var/log/kitchen_mic
+    sudo chown kitchen_mic:kitchen_mic /var/log/kitchen_mic
+    
     # Install systemd service
     sudo cp config/systemd/kitchen-mic.service /etc/systemd/system/
     sudo systemctl daemon-reload
@@ -160,20 +170,17 @@ EOL
 setup_storage() {
     log "Setting up storage directories..."
     
-    # Create storage directories
-    sudo mkdir -p /media/kitchen_mic_storage
-    sudo chown kitchen_mic:kitchen_mic /media/kitchen_mic_storage
+    # Create storage directory on USB
+    sudo mkdir -p /media/matthias/data/kitchen_mic_data
+    sudo chown kitchen_mic:kitchen_mic /media/matthias/data/kitchen_mic_data
     
-    # Set up automounting for USB drives
+    # Add kitchen_mic user to the necessary groups for USB access
+    sudo usermod -a -G plugdev kitchen_mic
+    
+    # Set up automounting for USB drives (in case drive is reconnected)
     sudo tee /etc/udev/rules.d/99-kitchen-mic-storage.rules > /dev/null << 'EOL'
-ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", \
-    RUN+="/bin/mkdir -p /media/kitchen_mic_storage/%k", \
-    RUN+="/bin/mount -o rw,sync /dev/%k /media/kitchen_mic_storage/%k", \
-    RUN+="/bin/chown kitchen_mic:kitchen_mic /media/kitchen_mic_storage/%k"
-
-ACTION=="remove", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", \
-    RUN+="/bin/umount -l /media/kitchen_mic_storage/%k", \
-    RUN+="/bin/rmdir /media/kitchen_mic_storage/%k"
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", ENV{ID_FS_LABEL}=="data", \
+    RUN+="/bin/chown -R kitchen_mic:kitchen_mic /media/matthias/data"
 EOL
 
     # Reload udev rules
@@ -211,7 +218,7 @@ main() {
     log "  sudo $(realpath $0) --uninstall"
     log ""
     log "Configuration file is at: /etc/kitchen_mic/config.yaml"
-    log "Storage will be mounted at: /media/kitchen_mic_storage"
+    log "Storage will be mounted at: /media/matthias/data/kitchen_mic_data"
 }
 
 # Handle command line arguments

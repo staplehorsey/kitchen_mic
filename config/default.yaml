@@ -4,11 +4,15 @@
 storage:
   # Primary storage location (will try USB drives first)
   # This will be overridden by USB storage if available
-  base_path: ~/.local/share/kitchen_mic/storage
+  base_path: "/media/matthias/data/kitchen_mic_data"
   # Minimum free space required (in GB)
   min_free_space_gb: 10
   # Maximum storage usage (in GB, 0 for unlimited)
   max_storage_gb: 0
+  # Maximum file size in MB
+  max_file_size_mb: 100
+  # Retention period in days
+  retention_days: 30
   # Storage structure
   directory_structure:
     raw_audio: raw
@@ -19,9 +23,10 @@ storage:
 audio:
   # Network audio source
   source:
+    type: "network"
     host: "staple.local"
     port: 12345
-    reconnect_delay: 1.0  # Seconds between reconnection attempts
+    reconnect_delay: 5.0  # Seconds between reconnection attempts
     buffer_size: 4096     # Network buffer size
   # Original high-quality capture
   capture:
@@ -53,8 +58,13 @@ conversation:
 # Models
 models:
   transcription:
-    name: "base"
+    name: "large"
     cache_dir: ~/.cache/kitchen_mic/models/transcription
+    temperature: 0.7
+    max_tokens: 100
+    endpoint: "http://rat.local:8080/v1"
+    request_timeout: 30
+    max_retries: 3
   
   llm:
     # Remote LLM endpoint
@@ -69,7 +79,7 @@ models:
 # Service settings
 service:
   # Log file location (uses system logger if empty)
-  log_file: ~/.local/share/kitchen_mic/logs/kitchen_mic.log
+  log_file: "/var/log/kitchen_mic/kitchen_mic.log"
   # Log level (DEBUG, INFO, WARNING, ERROR)
   log_level: "INFO"
   # PID file location
@@ -82,3 +92,11 @@ service:
   user: ""
   # Group to run service as (empty for current user's group)
   group: ""
+
+# Logging settings
+logging:
+  level: "INFO"
+  file: "/var/log/kitchen_mic/kitchen_mic.log"
+  max_size_mb: 100
+  backup_count: 5
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
