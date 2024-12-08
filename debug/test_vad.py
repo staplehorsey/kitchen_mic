@@ -43,71 +43,6 @@ class TimeRange:
     def contains(self, time: float) -> bool:
         return self.start <= time <= self.end
 
-@dataclass(frozen=True)
-class ConversationState:
-    speech_start: float
-    conversation_start: Optional[float] = None
-    speech_end: Optional[float] = None
-    conversation_end: Optional[float] = None
-    
-    def get_ranges(self, current_time: float):
-        """Get all the ranges and markers for this conversation state."""
-        ranges = []
-        markers = []
-        
-        # Speech start marker
-        markers.append(('blue', self.speech_start, 'Speech Start'))
-        
-        # Initial speech range (yellow)
-        if self.conversation_start:
-            ranges.append(('yellow', TimeRange(self.speech_start, self.conversation_start)))
-            # Conversation start marker
-            markers.append(('green', self.conversation_start, 'Conversation Start'))
-            
-            # Active conversation range (green)
-            if self.speech_end:
-                ranges.append(('green', TimeRange(self.conversation_start, self.speech_end)))
-        else:
-            # If no conversation started, yellow continues until speech end or current time
-            end_time = self.speech_end if self.speech_end else current_time
-            ranges.append(('yellow', TimeRange(self.speech_start, end_time)))
-        
-        # Speech end marker and post-speech range
-        if self.speech_end:
-            markers.append(('red', self.speech_end, 'Speech End'))
-            
-            # Post speech range (orange)
-            conv_end_time = self.speech_end + 15
-            if current_time < conv_end_time:
-                ranges.append(('orange', TimeRange(self.speech_end, min(current_time, conv_end_time))))
-            else:
-                # Conversation end marker
-                markers.append(('purple', conv_end_time, 'Conversation End'))
-        
-        return ranges, markers
-
-    @staticmethod
-    def from_dict(conv_dict: dict, current_time: float) -> 'ConversationState':
-        """Create a ConversationState from a conversation dictionary."""
-        state = ConversationState(
-            speech_start=conv_dict['speech_start'],
-            conversation_start=conv_dict.get('conversation_start'),
-            speech_end=conv_dict.get('last_speech'),
-            conversation_end=None  # We'll calculate this based on timing
-        )
-        
-        # If speech has ended and enough time has passed, set conversation_end
-        if state.speech_end and (current_time - state.speech_end) >= 15:
-            # Create new state with conversation_end set
-            return ConversationState(
-                speech_start=state.speech_start,
-                conversation_start=state.conversation_start,
-                speech_end=state.speech_end,
-                conversation_end=state.speech_end + 15
-            )
-        
-        return state
-
 class AudioPlayer:
     """Plays audio chunks in real-time using sounddevice."""
     
@@ -181,9 +116,6 @@ class VADVisualizer:
         self.audio_data = collections.deque(maxlen=window_size)
         self.speech_probs = collections.deque(maxlen=window_size)
         self.is_speech = collections.deque(maxlen=window_size)
-        self.conversations = []  # List of conversation events
-        self.current_conversation = None
-        self.timeline_start = None
         self.start_time = time.time()
         
         # Initialize with zeros
@@ -194,7 +126,7 @@ class VADVisualizer:
         
         # Set up plot
         plt.style.use('dark_background')
-        self.fig, (self.ax1, self.ax2, self.ax3) = plt.subplots(3, 1, figsize=(12, 10))
+        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(12, 8))
         self.fig.suptitle('Voice Activity Detection', fontsize=14)
         
         # Audio waveform
@@ -214,28 +146,10 @@ class VADVisualizer:
         self.ax2.grid(True, alpha=0.3)
         self.ax2.legend(loc='upper right')
         
-        # Conversation timeline
-        self.ax3.set_ylim(-0.1, 1.1)
-        self.ax3.set_xlabel('Time')
-        self.ax3.set_ylabel('Conversation State')
-        self.ax3.grid(True, alpha=0.3)
-        
-        # Add legend for conversation states
-        self.legend_elements = [
-            Line2D([0], [0], color='blue', linestyle='-', linewidth=2, label='Speech Start'),
-            Line2D([0], [0], color='green', linestyle='-', linewidth=2, label='Conversation Start'),
-            Line2D([0], [0], color='red', linestyle='-', linewidth=2, label='Speech End'),
-            Line2D([0], [0], color='purple', linestyle='-', linewidth=3, label='Conversation End'),
-            Patch(facecolor='yellow', alpha=0.5, label='Initial Speech'),
-            Patch(facecolor='green', alpha=0.3, label='Conversation Active'),
-            Patch(facecolor='orange', alpha=0.4, label='Post-Speech')
-        ]
-        self.ax3.legend(handles=self.legend_elements, loc='upper right')
-        
         # Status text
         self.status_text = self.fig.text(
             0.02, 0.02,
-            'Press Q to quit\nPress M to toggle audio\nPress R to reset timeline',
+            'Press Q to quit\nPress M to toggle audio',
             color='white',
             alpha=0.7
         )
@@ -256,235 +170,62 @@ class VADVisualizer:
         self._close_cid = self.fig.canvas.mpl_connect('close_event', self._on_close)
         self._key_cid = self.fig.canvas.mpl_connect('key_press_event', self._on_key)
     
-    def reset_timeline(self):
-        """Reset the conversation timeline."""
-        with self.data_lock:
-            self.conversations = []
-            self.current_conversation = None
-            self.timeline_start = None
-            self.start_time = time.time()
-            self._update_conversation_timeline()
-    
-    def _format_timestamp(self, timestamp: float) -> str:
-        """Format timestamp as HH:MM:SS."""
-        dt = datetime.datetime.fromtimestamp(timestamp)
-        return dt.strftime('%H:%M:%S')
-        
     def _update(self, frame):
         """Update animation frame."""
-        logger.debug("\n=== Animation Update Frame ===")
-        start_time = time.time()
-        
-        # Process any pending visualization updates
-        updates_processed = 0
-        while True:
-            try:
-                update_func = self.update_queue.get_nowait()
-                update_func()
-                updates_processed += 1
-            except Empty:
-                break
-        
-        if updates_processed > 0:
-            logger.debug(f"Processed {updates_processed} visualization updates")
-            
-        with self.data_lock:
-            # Update audio waveform
-            relative_time = time.time() - self.start_time
-            times = np.linspace(
-                relative_time - self.window_size / 20,
-                relative_time,
-                len(self.audio_data)
-            )
-            
-            self.line_audio.set_data(times, list(self.audio_data))
-            self.ax1.set_xlim(times[0], times[-1])
-            
-            # Update speech probability
-            prob_times = np.linspace(
-                relative_time - self.window_size / 20,
-                relative_time,
-                len(self.speech_probs)
-            )
-            probs = np.array(list(self.speech_probs))
-            speech = np.array(list(self.is_speech))
-            
-            self.line_prob.set_data(prob_times, probs)
-            self.line_speech.set_data(prob_times, speech)
-            self.ax2.set_xlim(times[0], times[-1])
-            
-            if len(probs) > 0:
-                logger.debug(f"Latest speech prob: {probs[-1]:.2f}, is_speech: {speech[-1]}")
-        
-        end_time = time.time()
-        logger.debug(f"Frame update took {(end_time - start_time)*1000:.1f}ms")
-        
-        # Don't return artists when not using blit
-        return []
+        try:
+            with self.data_lock:
+                # Calculate relative time and time windows
+                relative_time = time.time() - self.start_time
+                times = np.linspace(
+                    relative_time - self.window_size / 20,
+                    relative_time,
+                    len(self.audio_data)
+                )
+                
+                # Update audio waveform
+                self.line_audio.set_data(times, list(self.audio_data))
+                self.ax1.set_xlim(times[0], times[-1])
+                
+                # Update speech probability
+                prob_times = np.linspace(
+                    relative_time - self.window_size / 20,
+                    relative_time,
+                    len(self.speech_probs)
+                )
+                probs = np.array(list(self.speech_probs))
+                speech = np.array(list(self.is_speech))
+                
+                self.line_prob.set_data(prob_times, probs)
+                self.line_speech.set_data(prob_times, speech)
+                self.ax2.set_xlim(times[0], times[-1])
+                
+                if len(probs) > 0:
+                    logger.debug(f"Latest speech prob: {probs[-1]:.2f}, is_speech: {speech[-1]}")
+                
+                self.fig.canvas.draw_idle()
+                self.fig.canvas.flush_events()
+                
+        except Exception as e:
+            logger.error(f"Error in update: {e}")
     
     def add_data(self, audio_chunk: np.ndarray, vad_state):
         """Add new data to visualization."""
-        with self.data_lock:
-            # Update audio data
-            self.audio_data.extend(audio_chunk)
-            self.speech_probs.append(float(vad_state.speech_probability))
-            self.is_speech.append(1.0 if vad_state.is_speech else 0.0)
-            
-            # Check for conversation state changes
-            current_time = time.time()
-            timeline_updated = False
-            
-            logger.debug("\n=== VAD State Update ===")
-            logger.debug(f"Current time: {self._format_timestamp(current_time)} ({current_time})")
-            logger.debug(f"VAD State:")
-            logger.debug(f"  speech_prob: {vad_state.speech_probability:.2f}")
-            logger.debug(f"  is_speech: {vad_state.is_speech}")
-            logger.debug(f"  first_speech: {self._format_timestamp(vad_state.first_speech_time) if vad_state.first_speech_time else None}")
-            logger.debug(f"  conv_start: {self._format_timestamp(vad_state.conversation_start) if vad_state.conversation_start else None}")
-            logger.debug(f"  last_speech: {self._format_timestamp(vad_state.last_speech_time) if vad_state.last_speech_time else None}")
-            logger.debug(f"  conv_end: {self._format_timestamp(vad_state.conversation_end) if vad_state.conversation_end else None}")
-            
-            # First speech detection
-            if vad_state.first_speech_time is not None:
-                if not self.current_conversation:
-                    logger.info(f"Starting new conversation tracking at {self._format_timestamp(vad_state.first_speech_time)} ({vad_state.first_speech_time})")
-                    self.current_conversation = {
-                        'speech_start': vad_state.first_speech_time,
-                        'conversation_start': None,
-                        'last_speech': None,
-                        'conversation_end': None
-                    }
-                    timeline_updated = True
-            
-            # Conversation started
-            if vad_state.conversation_start is not None and self.current_conversation:
-                if self.current_conversation['conversation_start'] is None:
-                    logger.info(f"Marking conversation start at {self._format_timestamp(vad_state.conversation_start)} ({vad_state.conversation_start})")
-                    self.current_conversation['conversation_start'] = vad_state.conversation_start
-                    timeline_updated = True
-            
-            # Update last speech time
-            if vad_state.last_speech_time is not None and self.current_conversation:
-                logger.debug(f"Updating last speech time to {self._format_timestamp(vad_state.last_speech_time)} ({vad_state.last_speech_time})")
-                self.current_conversation['last_speech'] = vad_state.last_speech_time
-                timeline_updated = True
-            
-            # Conversation ended
-            if vad_state.conversation_end is not None and self.current_conversation:
-                if self.current_conversation['conversation_end'] is None:
-                    logger.info(f"Completing conversation at {self._format_timestamp(vad_state.conversation_end)} ({vad_state.conversation_end})")
-                    self.current_conversation['conversation_end'] = vad_state.conversation_end
-                    # Add completed conversation to list
-                    self.conversations.append(self.current_conversation)
-                    self.current_conversation = None
-                    timeline_updated = True
-            
-            # If timeline was updated or we have an active conversation, queue a redraw
-            if timeline_updated or self.current_conversation is not None:
-                logger.debug("=== Queueing Timeline Update ===")
-                logger.debug(f"Timeline updated: {timeline_updated}")
-                logger.debug(f"Active conversation: {self.current_conversation is not None}")
-                logger.debug(f"Total conversations: {len(self.conversations)}")
-                try:
-                    self.update_queue.put_nowait(self._update_conversation_timeline)
-                    logger.debug("Successfully queued timeline update")
-                except Full:
-                    logger.warning("Update queue is full, skipping timeline update")
-
-    def _draw_conversation_state(self, conv: dict, is_current: bool = False) -> None:
-        """Draw conversation state visualization."""
-        now = time.time()
-        alpha_mult = 1.0 if is_current else 0.7
-        
-        # Create immutable state object
-        state = ConversationState.from_dict(conv, now)
-        ranges, markers = state.get_ranges(now)
-        
-        # Draw all ranges
-        for color, time_range in ranges:
-            self.ax3.axvspan(
-                time_range.start,
-                time_range.end,
-                ymin=0, ymax=1,
-                alpha=(0.5 if color == 'yellow' else 0.4 if color == 'orange' else 0.3) * alpha_mult,
-                color=color
-            )
-        
-        # Draw all markers
-        for color, marker_time, _ in markers:
-            self.ax3.axvline(
-                x=marker_time,
-                color=color,
-                linestyle='-',
-                linewidth=3 if color == 'purple' else 2,
-                alpha=1.0 * alpha_mult
-            )
-
-    def _update_conversation_timeline(self):
-        """Update the conversation timeline visualization."""
-        self.ax3.clear()
-        
-        # Re-add grid and labels
-        self.ax3.grid(True, alpha=0.3)
-        self.ax3.set_ylabel('Conversation State')
-        self.ax3.set_ylim(-0.1, 1.1)
-        
-        # Re-add legend
-        self.ax3.legend(handles=self.legend_elements, loc='upper right')
-        
-        # Get time range
-        now = time.time()
-        
-        # Find earliest event time
-        earliest_time = now
-        if self.conversations:
-            for conv in self.conversations:
-                if conv['speech_start']:
-                    earliest_time = min(earliest_time, conv['speech_start'])
-        if self.current_conversation and self.current_conversation['speech_start']:
-            earliest_time = min(earliest_time, self.current_conversation['speech_start'])
-        
-        # Center the timeline around the midpoint between earliest event and now
-        window_size = 120  # Show 2 minutes total
-        midpoint = (now + earliest_time) / 2
-        x_min = midpoint - window_size/2
-        x_max = midpoint + window_size/2
-        
-        # If we're too close to the start, shift window
-        if now - x_min < 30:  # Ensure at least 30s future visibility
-            x_min = now - (window_size - 30)
-            x_max = now + 30
-        
-        logger.debug(f"Timeline window: {self._format_timestamp(x_min)} to {self._format_timestamp(x_max)}")
-        logger.debug(f"Raw timestamps - x_min: {x_min}, x_max: {x_max}, now: {now}")
-        self.ax3.set_xlim(x_min, x_max)
-        
-        # Format timestamps for x-axis (every 30 seconds)
-        x_ticks = np.arange(np.floor(x_min), np.ceil(x_max), 30)
-        self.ax3.set_xticks(x_ticks)
-        tick_labels = [self._format_timestamp(t) for t in x_ticks]
-        logger.debug("X-axis ticks:")
-        for t, l in zip(x_ticks, tick_labels):
-            logger.debug(f"  {t} -> {l}")
-        self.ax3.set_xticklabels(tick_labels, rotation=45, ha='right')
-        
-        # Plot completed conversations
-        for conv in self.conversations:
-            self._draw_conversation_state(conv)
-        
-        # Plot current conversation if active
-        if self.current_conversation:
-            self._draw_conversation_state(self.current_conversation, True)
-
+        try:
+            with self.data_lock:
+                # Update audio data
+                self.audio_data.extend(audio_chunk)
+                self.speech_probs.append(float(vad_state.speech_probability))
+                self.is_speech.append(1.0 if vad_state.is_speech else 0.0)
+                
+        except Exception as e:
+            logger.error(f"Error adding data: {e}")
+    
     def _on_key(self, event):
         """Handle key press events."""
         if event.key == 'q':
-            self.running = False
-            self.cleanup()
+            plt.close(self.fig)
         elif event.key == 'm' and self.audio_player:
             self.audio_player.toggle_mute()
-        elif event.key == 'r':
-            self.reset_timeline()
     
     def _on_close(self, event):
         """Handle window close event."""
@@ -493,81 +234,30 @@ class VADVisualizer:
     
     def cleanup(self):
         """Clean up resources."""
-        if not hasattr(self, '_cleanup_called'):
-            self._cleanup_called = True
-            logger.debug("Cleaning up visualizer")
-            
-            # Stop animation first
-            if self.anim is not None:
-                try:
-                    self.anim.event_source.stop()
-                except Exception as e:
-                    logger.error(f"Error stopping animation: {e}")
-                self.anim = None
-            
-            # Disconnect event handlers
-            if hasattr(self, '_close_cid') and self.fig.canvas:
-                self.fig.canvas.mpl_disconnect(self._close_cid)
-            if hasattr(self, '_key_cid') and self.fig.canvas:
-                self.fig.canvas.mpl_disconnect(self._key_cid)
-            
-            # Clear data structures
-            self.audio_data.clear()
-            self.speech_probs.clear()
-            self.is_speech.clear()
-            self.conversations.clear()
-            self.current_conversation = None
-            
-            # Clear the update queue
-            while not self.update_queue.empty():
-                try:
-                    self.update_queue.get_nowait()
-                except Empty:
-                    break
-            
-            # Close plot windows
-            try:
-                plt.close(self.fig)
-            except Exception as e:
-                logger.error(f"Error closing figure: {e}")
-            
-            # Clear references
-            self.fig = None
-            self.ax1 = None
-            self.ax2 = None
-            self.ax3 = None
-            self.line_audio = None
-            self.line_prob = None
-            self.line_speech = None
-            self.audio_player = None
+        if self.anim:
+            self.anim.event_source.stop()
+        if hasattr(self, '_close_cid') and self._close_cid:
+            self.fig.canvas.mpl_disconnect(self._close_cid)
+        if hasattr(self, '_key_cid') and self._key_cid:
+            self.fig.canvas.mpl_disconnect(self._key_cid)
     
     def start_animation(self):
         """Start the animation."""
-        if self.anim is not None:
-            try:
-                self.anim.event_source.stop()
-            except Exception as e:
-                logger.error(f"Error stopping previous animation: {e}")
-            self.anim = None
-        
-        logger.debug("Starting new animation")
         self.anim = FuncAnimation(
             self.fig,
             self._update,
-            interval=100,  # Reduced update frequency
-            blit=False,    # Disable blitting for more reliable updates
+            interval=50,  # Update every 50ms
+            blit=False,
             cache_frame_data=False
         )
-        logger.debug("Animation started")
-
+    
     def set_audio_player(self, player):
         """Set audio player reference for mute toggle."""
         self.audio_player = player
     
     def show(self):
         """Show visualization window."""
-        if self.running:
-            plt.show()
+        plt.show()
 
 def main():
     """Main test function."""
