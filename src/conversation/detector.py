@@ -118,25 +118,42 @@ class ConversationDetector:
             vad_state: Current VAD state
             current_time: Current wall clock time
         """
-        # Start new conversation
+        # Start new conversation when VAD detects enough speech
         if vad_state.is_conversation and not self._conversation_start:
             logger.info("Starting new conversation")
             self._conversation_start = current_time
-            # Copy pre-conversation buffer
-            self._current_audio = list(self._audio_buffer)
+            
+            # Calculate how many samples to keep from buffer based on first speech
+            if vad_state.first_speech_time is not None:
+                samples_since_speech = int((current_time - vad_state.first_speech_time) * self.audio_processor.sample_rate)
+                buffer_list = list(self._audio_buffer)
+                
+                # Take only samples since first speech
+                if samples_since_speech < len(buffer_list):
+                    self._current_audio = buffer_list[-samples_since_speech:]
+                else:
+                    self._current_audio = buffer_list
+                    
+                logger.debug(f"Captured {len(self._current_audio)/self.audio_processor.sample_rate:.1f}s of audio since first speech at {vad_state.first_speech_time}")
+            else:
+                # Fallback if no first_speech_time
+                self._current_audio = list(self._audio_buffer)
+                logger.warning("No first_speech_time available, using full buffer")
         
-        # End conversation
+        # End conversation when VAD says conversation is over
         if self._conversation_start and not vad_state.is_conversation:
+            # VAD has already handled cooldown timing
             self._end_conversation(current_time, vad_state.speech_segments)
     
     def _end_conversation(self, end_time: float, speech_segments: list) -> None:
         """End current conversation and emit message.
         
         Args:
-            end_time: Time when conversation ended
+            end_time: Time conversation ended
             speech_segments: List of speech segments from VAD
         """
         if not self._conversation_start:
+            logger.warning("Trying to end conversation that hasn't started")
             return
         
         logger.info("Ending conversation")
@@ -150,17 +167,18 @@ class ConversationDetector:
                 end_time=end_time,
                 metadata={
                     'sample_rate': self.audio_processor.sample_rate,
-                    'speech_segments': speech_segments
+                    'speech_segments': speech_segments,
+                    'first_speech_time': self._conversation_start  # When we started recording
                 }
             )
             
             # Send to callback if provided
             if self.on_conversation:
                 self.on_conversation(message)
-        
+            
         except Exception as e:
             logger.error(f"Error creating conversation message: {e}")
-        
+            
         finally:
             # Reset state
             self._conversation_start = None

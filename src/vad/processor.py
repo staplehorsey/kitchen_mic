@@ -242,7 +242,7 @@ class VADProcessor:
                             is_conversation=self._conversation_started,
                             conversation_start=self._conversation_start_time,
                             conversation_end=conversation_end,
-                            first_speech_time=first_speech_time,
+                            first_speech_time=first_speech_time or self._first_speech_time,  # Use existing if no new
                             last_speech_time=last_speech,
                             speech_segments=list(self._speech_segments)
                         )
