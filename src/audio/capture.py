@@ -125,21 +125,67 @@ class AudioCapture:
     
     def _find_microphone(self) -> Optional[int]:
         """Find Blue Yeti or default microphone."""
+        # Try to find Blue Yeti by checking all devices
         for i in range(self.pyaudio.get_device_count()):
             dev_info = self.pyaudio.get_device_info_by_index(i)
             logger.info(f"Found audio device {i}: {dev_info['name']}")
             logger.info(f"  Max input channels: {dev_info['maxInputChannels']}")
             logger.info(f"  Default sample rate: {dev_info['defaultSampleRate']}")
-            # Try to find Blue Yeti first
-            if "Blue" in dev_info["name"]:
-                logger.info(f"Found Blue Yeti microphone: {dev_info['name']}")
-                return i
+            
+            # Look for Blue Yeti in name and make sure it's an ALSA device
+            if "Blue" in dev_info["name"] and "hw:" in dev_info["name"]:
+                # Extract ALSA card and device numbers
+                try:
+                    hw_str = dev_info["name"].split("hw:")[1].split(")")[0]
+                    card, device = map(int, hw_str.split(","))
+                    logger.info(f"Found Blue Yeti on ALSA card {card}, device {device}")
+                    
+                    # Test if device is actually available for capture
+                    test_stream = self.pyaudio.open(
+                        format=self.format,
+                        channels=1,
+                        rate=self.original_rate,
+                        input=True,
+                        input_device_index=i,
+                        frames_per_buffer=1024,
+                        start=False
+                    )
+                    test_stream.close()
+                    logger.info(f"Successfully tested Blue Yeti microphone: {dev_info['name']}")
+                    return i
+                except Exception as e:
+                    logger.warning(f"Failed to test Blue Yeti device: {e}")
+                    continue
         
         # Fall back to default input device
-        default_input = self.pyaudio.get_default_input_device_info()
-        logger.info(f"Using default input device: {default_input['name']}")
-        return default_input["index"]
-
+        try:
+            default_input = self.pyaudio.get_default_input_device_info()
+            logger.info(f"Using default input device: {default_input['name']}")
+            return default_input["index"]
+        except Exception as e:
+            logger.error(f"Failed to get default input device: {e}")
+            
+            # Last resort: try to find any working input device
+            for i in range(self.pyaudio.get_device_count()):
+                dev_info = self.pyaudio.get_device_info_by_index(i)
+                try:
+                    test_stream = self.pyaudio.open(
+                        format=self.format,
+                        channels=1,
+                        rate=self.original_rate,
+                        input=True,
+                        input_device_index=i,
+                        frames_per_buffer=1024,
+                        start=False
+                    )
+                    test_stream.close()
+                    logger.info(f"Found working input device: {dev_info['name']}")
+                    return i
+                except:
+                    continue
+            
+            raise ValueError("No working input devices found")
+    
     def _audio_callback(self, in_data, frame_count, time_info, status):
         """Handle incoming audio data from PyAudio."""
         if status:
@@ -243,8 +289,10 @@ class AudioCapture:
             
             # Find microphone
             self.device_index = self._find_microphone()
+            if self.device_index is None:
+                raise ValueError("No input device found")
             
-            # Get device info and validate configuration
+            # Get device info
             info = self.pyaudio.get_device_info_by_index(self.device_index)
             logger.info("Selected device info:")
             logger.info(f"  Name: {info['name']}")
@@ -253,34 +301,12 @@ class AudioCapture:
             logger.info(f"  Default sample rate: {info['defaultSampleRate']}")
             logger.info(f"  Device info: {info}")
             
-            # Some devices report 0 channels but still work - try to open with 1 channel first
-            test_channels = 1
-            try:
-                # Test if we can open with 1 channel
-                test_stream = self.pyaudio.open(
-                    format=self.format,
-                    channels=test_channels,
-                    rate=self.original_rate,
-                    input=True,
-                    input_device_index=self.device_index,
-                    frames_per_buffer=1024,
-                    start=False
-                )
-                test_stream.close()
-                logger.info(f"Successfully tested device with {test_channels} channel")
-                self.channels = test_channels
-            except Exception as e:
-                logger.warning(f"Failed to test device with {test_channels} channel: {e}")
-                # Fall back to device info
-                device_channels = min(info['maxInputChannels'], 2)  # Use at most 2 channels
-                if device_channels < 1:
-                    raise ValueError(f"Device {info['name']} has no input channels")
-                self.channels = device_channels
-            
-            logger.info(f"Using {self.channels} channel(s) from device {info['name']}")
+            # Use 1 channel since we've tested it works
+            self.channels = 1
+            logger.info(f"Using {self.channels} channel from device {info['name']}")
             
             # Open audio stream with larger buffer for stability
-            frames_per_buffer = max(2048, self.chunk_size * 4)  # Increased buffer size
+            frames_per_buffer = max(2048, self.chunk_size * 4)
             logger.info(f"Using frames_per_buffer={frames_per_buffer}")
             
             self.stream = self.pyaudio.open(
@@ -291,7 +317,7 @@ class AudioCapture:
                 input_device_index=self.device_index,
                 frames_per_buffer=frames_per_buffer,
                 stream_callback=self._audio_callback,
-                start=False  # Don't start immediately
+                start=False
             )
             
             # Start the stream
