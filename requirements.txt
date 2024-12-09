@@ -11,3 +11,4 @@ sdnotify==0.3.2  # For systemd integration
 PyYAML==6.0.1    # For configuration
 soundfile==0.12.1  # For audio file handling
 python-dotenv==1.0.0  # For environment variables
+PyAudio==0.2.14   # For direct microphone capture

@@ -4,7 +4,7 @@
 storage:
   # Primary storage location (will try USB drives first)
   # This will be overridden by USB storage if available
-  base_dir: "/media/matthias/data/kitchen_mic_data"
+  base_dir: "/media/data/kitchen_mic_data"
   # Minimum free space required (in GB)
   min_free_space_gb: 10
   # Maximum storage usage (in GB, 0 for unlimited)
@@ -45,7 +45,7 @@ vad:
   # Minimum duration for a valid conversation
   min_conversation_sec: 5.0
   # Time without speech before ending conversation
-  conversation_cooldown_sec: 8.0
+  conversation_cooldown_sec: 30
   # Time to keep before first detected speech
   pre_speech_sec: 3.0
 
