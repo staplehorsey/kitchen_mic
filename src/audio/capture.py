@@ -17,7 +17,11 @@ import errno
 import numpy as np
 import librosa
 
-# Get module logger
+# Configure logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
 def visualize_audio_level(audio_chunk: np.ndarray, width: int = 50) -> str:
@@ -30,10 +34,31 @@ def visualize_audio_level(audio_chunk: np.ndarray, width: int = 50) -> str:
     Returns:
         ASCII visualization of audio level
     """
-    level = float(np.abs(audio_chunk).mean())
-    normalized = min(1.0, level * 5)  # Amplify for better visibility
-    bars = int(normalized * width)
-    return f"[{'=' * bars}{' ' * (width - bars)}] ({level:.4f})"
+    # Calculate RMS level (root mean square)
+    rms = np.sqrt(np.mean(np.square(audio_chunk)))
+    
+    # Apply log scaling and normalization
+    # -60dB to 0dB range
+    db = 20 * np.log10(max(rms, 1e-10))
+    db = max(-60, min(0, db))  # Clamp to -60..0 dB
+    level = (db + 60) / 60  # Normalize to 0..1
+    
+    # Create bar with multiple thresholds
+    bar_width = int(level * width)
+    bar = ""
+    for i in range(width):
+        if i < bar_width:
+            if i / width < 0.2:  # First 20% - quiet
+                bar += "="
+            elif i / width < 0.6:  # 20-60% - normal speech
+                bar += "█"
+            else:  # 60-100% - loud
+                bar += "▇"
+        else:
+            bar += " "
+    
+    # Add numeric level in dB
+    return f"[{bar}] ({db:.1f}dB)"
 
 class AudioCapture:
     """Captures audio from network stream and provides dual-stream processing."""
@@ -47,7 +72,9 @@ class AudioCapture:
         target_rate: int = 16000,
         channels: int = 1,
         chunk_size: int = 512,  # Match server's chunk size
-        visualize: bool = True
+        visualize: bool = True,
+        visualization_width: int = 50,
+        visualization_interval: float = 0.1
     ):
         """Initialize audio capture.
         
@@ -60,6 +87,8 @@ class AudioCapture:
             channels: Number of audio channels
             chunk_size: Audio chunk size in samples
             visualize: Whether to show audio level visualization
+            visualization_width: Width of visualization
+            visualization_interval: Update interval for visualization
         """
         self.host = host
         self.port = port
@@ -69,6 +98,8 @@ class AudioCapture:
         self.channels = channels
         self.chunk_size = chunk_size
         self.visualize = visualize
+        self.visualization_width = visualization_width
+        self.visualization_interval = visualization_interval
         
         logger.info(f"AudioCapture initialized with visualize={visualize}")
         
@@ -95,6 +126,11 @@ class AudioCapture:
         # chunk_size is in samples, convert to bytes
         self.samples_per_chunk = chunk_size
         self.chunk_size = self.samples_per_chunk * self.bytes_per_sample
+        
+        # Audio level visualization
+        self.last_level_time = 0
+        self.level_interval = self.visualization_interval  # Update level more frequently for smooth display
+        self.last_level = ""  # Store last level for cleanup
         
         logger.info(
             f"Audio format: {channels} channels, {original_rate}Hz, "
@@ -168,38 +204,48 @@ class AudioCapture:
             return False
 
     def _process_audio(self, data: bytes) -> None:
-        """Process raw audio data and notify callbacks."""
+        """Process raw audio data and notify callbacks.
+        
+        Args:
+            data: Raw audio bytes
+        """
         try:
-            # Convert bytes to numpy array
-            audio_data = np.frombuffer(data, dtype=np.float32)
+            # Convert to float32 array
+            audio = np.frombuffer(data, dtype=np.float32)
             
-            # Resample for VAD if needed
-            if self.target_rate != self.original_rate:
-                resampled = librosa.resample(
-                    audio_data,
-                    orig_sr=self.original_rate,
-                    target_sr=self.target_rate
-                )
-            else:
-                resampled = audio_data
+            # Current wall clock time
+            current_time = time.time()
+            
+            # Downsample for VAD
+            downsampled = librosa.resample(
+                audio,
+                orig_sr=self.original_rate,
+                target_sr=self.target_rate
+            )
             
             # Visualize audio level if enabled
             if self.visualize:
-                viz = visualize_audio_level(audio_data)
-                logger.debug(f"Audio level: {viz}")
+                now = time.time()
+                if now - self.last_level_time >= self.level_interval:
+                    viz = visualize_audio_level(audio, width=self.visualization_width)
+                    # Clear previous line and print new level
+                    print(f"\r{' ' * len(self.last_level)}\r{viz}", end="", flush=True)
+                    self.last_level = viz
+                    self.last_level_time = now
             
-            # Notify callbacks with timestamp and both audio streams
-            timestamp = time.time()
+            # Notify callbacks
             with self._lock:
                 for callback in self._callbacks:
                     try:
-                        callback(timestamp, audio_data, resampled)
+                        callback(current_time, audio, downsampled)
                     except Exception as e:
-                        logger.error(f"Error in callback {callback.__name__}: {e}")
+                        logger.error(f"Error in audio callback: {e}")
+            
+            self.last_data_time = current_time
             
         except Exception as e:
-            logger.error(f"Error processing audio data: {e}", exc_info=True)
-
+            logger.error(f"Error processing audio data: {e}")
+    
     def _capture_loop(self) -> None:
         """Main audio capture loop."""
         logger.debug("Starting capture loop")
@@ -298,6 +344,10 @@ class AudioCapture:
         self.socket = None
         self.connected = False
         logger.debug("Socket cleanup complete")
+        
+        if self.visualize:
+            # Clear the audio level line when stopping
+            print(f"\r{' ' * len(self.last_level)}\r", end="", flush=True)
     
     def _signal_handler(self, signum, frame) -> None:
         """Handle shutdown signals gracefully."""
@@ -328,7 +378,10 @@ class AudioCapture:
         logger.info("Stopping audio capture")
         self._running = False
         
-        # Clean up
+        if self.visualize:
+            # Clear the audio level line when stopping
+            print(f"\r{' ' * len(self.last_level)}\r", end="", flush=True)
+        
         self._cleanup()
         
         # Wait for thread
