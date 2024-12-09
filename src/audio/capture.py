@@ -124,19 +124,7 @@ class AudioCapture:
         signal.signal(signal.SIGTERM, self._signal_handler)
     
     def _find_microphone(self) -> Optional[int]:
-        """Find Blue Yeti or default microphone."""
-        # Try to find Blue Yeti by name
-        for i in range(self.pyaudio.get_device_count()):
-            dev_info = self.pyaudio.get_device_info_by_index(i)
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"Found audio device {i}: {dev_info['name']}")
-            
-            # Look for Blue Yeti in name
-            if "Blue" in dev_info["name"]:
-                logger.info(f"Found Blue Yeti microphone: {dev_info['name']}")
-                return i
-        
-        # Fall back to default input device
+        """Find default microphone."""
         default_input = self.pyaudio.get_default_input_device_info()
         logger.info(f"Using default microphone: {default_input['name']}")
         return default_input["index"]
@@ -245,21 +233,14 @@ class AudioCapture:
             # Find microphone
             self.device_index = self._find_microphone()
             
-            # Get device info first
-            info = self.pyaudio.get_device_info_by_index(self.device_index)
-            logger.debug(f"Device info: {info}")
-            max_channels = int(info['maxInputChannels'])
-            if max_channels == 0:
-                max_channels = 2  # fallback if device reports 0
-            
             # Open audio stream with larger buffer
             self.stream = self.pyaudio.open(
                 format=self.format,
-                channels=max_channels,  # Use max channels reported by device
+                channels=1,
                 rate=self.original_rate,
                 input=True,
                 input_device_index=self.device_index,
-                frames_per_buffer=4096,  # Use larger buffer size
+                frames_per_buffer=4096,
                 stream_callback=self._audio_callback
             )
             
