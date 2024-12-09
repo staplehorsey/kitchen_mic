@@ -253,9 +253,13 @@ class AudioCapture:
                 logger.debug(f"  Name: {info['name']}")
                 logger.debug(f"  Index: {self.device_index}")
                 logger.debug(f"  Sample rate: {info['defaultSampleRate']}")
+                logger.debug(f"  Max input channels: {info['maxInputChannels']}")
             
-            # Use 1 channel
-            self.channels = 1
+            # Use device's reported channel count
+            self.channels = int(info['maxInputChannels'])
+            if self.channels == 0:
+                # If device reports 0 channels, try 2 as it worked before
+                self.channels = 2
             
             # Open audio stream with larger buffer for stability
             frames_per_buffer = max(2048, self.chunk_size * 4)
