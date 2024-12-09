@@ -98,7 +98,6 @@ class TranscriptionProcessor:
                 temperature=0.0,  # Reduce randomness
                 compression_ratio_threshold=2.8,  # Higher threshold to reject repetitive text
                 condition_on_previous_text=False,  # Don't condition on previous text to reduce repetition
-                max_context=64,  # Reduced context size to prevent repetition
                 fp16=False if self.device == "cpu" else torch.cuda.is_available()  # Use FP16 only if using GPU
             )
             
