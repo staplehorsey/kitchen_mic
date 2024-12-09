@@ -245,10 +245,17 @@ class AudioCapture:
             # Find microphone
             self.device_index = self._find_microphone()
             
+            # Get device info first
+            info = self.pyaudio.get_device_info_by_index(self.device_index)
+            logger.debug(f"Device info: {info}")
+            max_channels = int(info['maxInputChannels'])
+            if max_channels == 0:
+                max_channels = 2  # fallback if device reports 0
+            
             # Open audio stream with larger buffer
             self.stream = self.pyaudio.open(
                 format=self.format,
-                channels=1, 
+                channels=max_channels,  # Use max channels reported by device
                 rate=self.original_rate,
                 input=True,
                 input_device_index=self.device_index,
