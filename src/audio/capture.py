@@ -127,6 +127,9 @@ class AudioCapture:
         """Find Blue Yeti or default microphone."""
         for i in range(self.pyaudio.get_device_count()):
             dev_info = self.pyaudio.get_device_info_by_index(i)
+            logger.info(f"Found audio device {i}: {dev_info['name']}")
+            logger.info(f"  Max input channels: {dev_info['maxInputChannels']}")
+            logger.info(f"  Default sample rate: {dev_info['defaultSampleRate']}")
             # Try to find Blue Yeti first
             if "Blue" in dev_info["name"]:
                 logger.info(f"Found Blue Yeti microphone: {dev_info['name']}")
@@ -243,12 +246,37 @@ class AudioCapture:
             
             # Get device info and validate configuration
             info = self.pyaudio.get_device_info_by_index(self.device_index)
-            device_channels = min(info['maxInputChannels'], 2)  # Use at most 2 channels
-            if device_channels < 1:
-                raise ValueError(f"Device {info['name']} has no input channels")
+            logger.info("Selected device info:")
+            logger.info(f"  Name: {info['name']}")
+            logger.info(f"  Index: {self.device_index}")
+            logger.info(f"  Max input channels: {info['maxInputChannels']}")
+            logger.info(f"  Default sample rate: {info['defaultSampleRate']}")
+            logger.info(f"  Device info: {info}")
             
-            # Adjust our configuration to match device capabilities
-            self.channels = device_channels
+            # Some devices report 0 channels but still work - try to open with 1 channel first
+            test_channels = 1
+            try:
+                # Test if we can open with 1 channel
+                test_stream = self.pyaudio.open(
+                    format=self.format,
+                    channels=test_channels,
+                    rate=self.original_rate,
+                    input=True,
+                    input_device_index=self.device_index,
+                    frames_per_buffer=1024,
+                    start=False
+                )
+                test_stream.close()
+                logger.info(f"Successfully tested device with {test_channels} channel")
+                self.channels = test_channels
+            except Exception as e:
+                logger.warning(f"Failed to test device with {test_channels} channel: {e}")
+                # Fall back to device info
+                device_channels = min(info['maxInputChannels'], 2)  # Use at most 2 channels
+                if device_channels < 1:
+                    raise ValueError(f"Device {info['name']} has no input channels")
+                self.channels = device_channels
+            
             logger.info(f"Using {self.channels} channel(s) from device {info['name']}")
             
             # Open audio stream with larger buffer for stability
