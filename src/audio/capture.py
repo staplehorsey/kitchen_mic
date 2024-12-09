@@ -248,7 +248,7 @@ class AudioCapture:
             # Open audio stream with larger buffer
             self.stream = self.pyaudio.open(
                 format=self.format,
-                channels=2,  # Use 2 channels as it worked before
+                channels=1, 
                 rate=self.original_rate,
                 input=True,
                 input_device_index=self.device_index,
