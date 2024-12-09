@@ -225,31 +225,6 @@ class ConfigManager:
                     
         return None
 
-    def _validate_audio_source(self) -> None:
-        """Validate audio source configuration."""
-        audio_config = self.config['audio']
-        source = audio_config['source']
-        
-        # Validate required fields
-        required = ['host', 'port']
-        if not all(k in source for k in required):
-            raise ValueError("Missing required audio source configuration")
-            
-        # Validate port number
-        if not (0 < source['port'] < 65536):
-            raise ValueError(f"Invalid port number: {source['port']}")
-            
-        # Test connection if possible
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(2)
-            sock.connect((source['host'], source['port']))
-            sock.close()
-            logger.info(f"Successfully connected to audio source at {source['host']}:{source['port']}")
-        except Exception as e:
-            logger.warning(f"Could not connect to audio source: {e}")
-            # Don't raise error as the service might not be running during config validation
-
     def _validate_llm_endpoint(self) -> None:
         """Validate LLM endpoint configuration."""
         llm_config = self.config['models']['llm']

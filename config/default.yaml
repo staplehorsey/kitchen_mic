@@ -21,22 +21,20 @@ storage:
 
 # Audio capture settings
 audio:
-  # Network audio source
+  # Direct microphone capture
   source:
-    type: "network"
-    host: "staple.local"
-    port: 12345
-    reconnect_delay: 5.0  # Seconds between reconnection attempts
-    buffer_size: 4096     # Network buffer size
+    type: "microphone"
+    buffer_size: 4096     # Audio buffer size
     visualize: true      # Show audio level visualization
   # Original high-quality capture
   capture:
-    sample_rate: 44100
-    channels: 1
+    sample_rate: 44000   # Original sample rate
+    channels: 1          # Mono audio
+    chunk_size: 512      # Chunk size in samples
   # Downsampled for VAD
   vad:
-    sample_rate: 16000
-    chunk_size: 512
+    sample_rate: 16000   # VAD sample rate
+    chunk_size: 512      # VAD chunk size
 
 # Voice Activity Detection
 vad:

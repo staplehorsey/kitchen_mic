@@ -100,13 +100,11 @@ class KitchenMicService:
             )
             vad = VADProcessor(config=vad_config)
             audio = AudioCapture(
-                host=self.config['audio']['source']['host'],
-                port=self.config['audio']['source']['port'],
                 buffer_size=self.config['audio']['source']['buffer_size'],
                 original_rate=self.config['audio']['capture']['sample_rate'],
                 target_rate=self.config['audio']['vad']['sample_rate'],
                 channels=self.config['audio']['capture']['channels'],
-                chunk_size=self.config['audio']['vad']['chunk_size'],
+                chunk_size=self.config['audio']['capture']['chunk_size'],
                 visualize=self.config['audio']['source'].get('visualize', True)
             )
             
