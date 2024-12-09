@@ -29,13 +29,20 @@ class TranscriptionProcessor:
         # Set device
         if device:
             self.device = device
+            if device == "cpu":
+                # Force CPU before loading model
+                torch.cuda.is_available = lambda: False
         else:
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
             
         logger.info(f"Loading Whisper model '{model_name}' on {self.device}")
         
         try:
-            self.model = whisper.load_model(model_name).to(self.device)
+            self.model = whisper.load_model(model_name)
+            if self.device == "cpu":
+                self.model = self.model.cpu()
+            else:
+                self.model = self.model.to(self.device)
         except Exception as e:
             logger.error(f"Failed to load Whisper model: {e}")
             raise
