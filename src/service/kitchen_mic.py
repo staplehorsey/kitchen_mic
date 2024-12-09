@@ -155,9 +155,16 @@ class KitchenMicService:
             signal.signal(signal.SIGTERM, self.signal_handler)
             signal.signal(signal.SIGINT, self.signal_handler)
             
-            # Start the orchestrator
+            # Start components in correct order
             if self.orchestrator:
+                # Start orchestrator first (this starts the detector)
                 self.orchestrator.start()
+                
+                # Start audio capture
+                audio = self.orchestrator.detector.audio_processor
+                if hasattr(audio, 'start'):
+                    audio.start()
+                
                 self.running = True
                 
                 # Notify systemd we're ready
@@ -186,6 +193,12 @@ class KitchenMicService:
             self.running = False
             
             if self.orchestrator:
+                # Stop components in reverse order
+                audio = self.orchestrator.detector.audio_processor
+                if hasattr(audio, 'stop'):
+                    audio.stop()
+                
+                # Stop orchestrator (this stops the detector)
                 self.orchestrator.stop()
                 self.orchestrator = None
                 

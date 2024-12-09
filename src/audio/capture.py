@@ -314,8 +314,11 @@ class AudioCapture:
         self._running = True
         
         # Start capture thread
+        logger.debug("Starting capture thread")
         self.capture_thread = threading.Thread(target=self._capture_loop)
+        self.capture_thread.daemon = True  # Make thread daemon so it exits with main program
         self.capture_thread.start()
+        logger.debug("Capture thread started")
     
     def stop(self) -> None:
         """Stop audio capture."""
@@ -330,7 +333,10 @@ class AudioCapture:
         
         # Wait for thread
         if self.capture_thread:
+            logger.debug("Waiting for capture thread to stop")
             self.capture_thread.join(timeout=5.0)
+            if self.capture_thread.is_alive():
+                logger.warning("Capture thread did not stop cleanly")
             self.capture_thread = None
         
         logger.info("Audio capture stopped")
