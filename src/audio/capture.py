@@ -66,7 +66,7 @@ class AudioCapture:
         buffer_size: int = 4096,
         original_rate: int = 44000,  # Match server's sample rate
         target_rate: int = 16000,
-        channels: int = 1,
+        channels: int = 2,  # Change back to 2 channels
         chunk_size: int = 512,  # Match server's chunk size
         visualize: bool = True,
         visualization_width: int = 50,
