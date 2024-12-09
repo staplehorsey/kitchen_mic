@@ -17,11 +17,7 @@ import errno
 import numpy as np
 import librosa
 
-# Configure logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.DEBUG  # Force DEBUG level
-)
+# Get module logger
 logger = logging.getLogger(__name__)
 
 def visualize_audio_level(audio_chunk: np.ndarray, width: int = 50) -> str:
@@ -125,10 +121,20 @@ class AudioCapture:
             True if connection successful
         """
         try:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             logger.debug(f"Attempting to connect to {self.host}:{self.port}")
+            
+            # Create socket
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            logger.debug("Socket created")
+            
+            # Connect
             self.socket.connect((self.host, self.port))
-            logger.info(f"Connected to audio source at {self.host}:{self.port}")
+            logger.debug("Successfully connected to audio source")
+            
+            # Set non-blocking after connect
+            self.socket.setblocking(False)
+            logger.debug("Set socket to non-blocking mode")
+            
             self.connected = True
             self.last_data_time = time.time()
             self.reconnect_delay = 1.0  # Reset delay on successful connection
