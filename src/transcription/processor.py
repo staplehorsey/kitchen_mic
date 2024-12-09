@@ -86,14 +86,19 @@ class TranscriptionProcessor:
             if audio.max() > 1.0:
                 audio = audio / 32768.0  # Convert from int16
             
-            # Run transcription with improved options
+            # Run transcription with improved options for reducing repetition
             result = self.model.transcribe(
                 audio,
                 language=language_hint,
                 initial_prompt="This is a conversation in a kitchen.",
                 task="transcribe",
-                best_of=5,  # Increase beam search
+                best_of=5,  # Use 5 beams for better quality
+                beam_size=5,  # Match beam size to best_of
+                patience=2.0,  # Higher patience for better beam search
                 temperature=0.0,  # Reduce randomness
+                compression_ratio_threshold=2.8,  # Higher threshold to reject repetitive text
+                condition_on_previous_text=False,  # Don't condition on previous text to reduce repetition
+                max_context=64,  # Reduced context size to prevent repetition
                 fp16=False if self.device == "cpu" else torch.cuda.is_available()  # Use FP16 only if using GPU
             )
             

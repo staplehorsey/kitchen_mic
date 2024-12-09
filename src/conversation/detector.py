@@ -176,6 +176,26 @@ class ConversationDetector:
             return
         
         try:
+            # Get the last speech time from the last segment
+            last_speech_time = None
+            if speech_segments:
+                last_start, last_duration = speech_segments[-1]
+                last_speech_time = last_start + last_duration
+            
+            # If we have a valid last speech time, trim the audio
+            if last_speech_time is not None:
+                # Keep a small buffer after the last speech (same as pre-speech)
+                audio_end_time = last_speech_time + self.pre_speech_duration
+                samples_to_keep = int((audio_end_time - self._conversation_start) * self.audio_processor.sample_rate)
+                samples_to_keep_16k = int(samples_to_keep * (16000 / self.audio_processor.sample_rate))
+                
+                # Trim audio buffers
+                if samples_to_keep < len(self._current_audio):
+                    logger.info(f"Trimming {(len(self._current_audio) - samples_to_keep)/self.audio_processor.sample_rate:.1f}s of trailing silence")
+                    self._current_audio = self._current_audio[:samples_to_keep]
+                    self._current_audio_16k = self._current_audio_16k[:samples_to_keep_16k]
+                    end_time = audio_end_time  # Update end time to match trimmed audio
+            
             # Create conversation message
             duration = end_time - self._conversation_start
             message = ConversationMessage(
