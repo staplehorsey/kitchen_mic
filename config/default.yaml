@@ -79,7 +79,7 @@ models:
 # Service settings
 service:
   # Log file location (uses system logger if empty)
-  log_file: "/var/log/kitchen_mic/kitchen_mic.log"
+  log_file: "~/.local/share/kitchen_mic/kitchen_mic.log"
   # Log level (DEBUG, INFO, WARNING, ERROR)
   log_level: "INFO"
   # PID file location
