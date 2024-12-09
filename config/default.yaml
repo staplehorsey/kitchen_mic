@@ -83,7 +83,7 @@ service:
   # Log file location (uses system logger if empty)
   log_file: "~/.local/share/kitchen_mic/kitchen_mic.log"
   # Log level (DEBUG, INFO, WARNING, ERROR)
-  log_level: "INFO"
+  log_level: "DEBUG"
   # PID file location
   pid_file: /var/run/kitchen_mic.pid
   # Health check interval in seconds
@@ -97,7 +97,7 @@ service:
 
 # Logging settings
 logging:
-  level: "INFO"
+  level: "DEBUG"
   file: "/var/log/kitchen_mic/kitchen_mic.log"
   max_size_mb: 100
   backup_count: 5

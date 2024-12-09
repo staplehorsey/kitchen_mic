@@ -74,6 +74,8 @@ class AudioCapture:
         self.chunk_size = chunk_size
         self.visualize = visualize
         
+        logger.info(f"AudioCapture initialized with visualize={visualize}")
+        
         # Socket and thread state
         self.socket: Optional[socket.socket] = None
         self.running = False
@@ -150,30 +152,36 @@ class AudioCapture:
             # Convert to float32 array
             audio = np.frombuffer(data, dtype=np.float32)
             
-            # Visualize audio level
-            if self.visualize and len(audio) > 0:
-                logger.info(f"Audio Level: {visualize_audio_level(audio)}")
-            
-            # Current wall clock time
-            current_time = time.time()
-            
-            # Downsample for VAD
-            downsampled = librosa.resample(
-                audio,
-                orig_sr=self.original_rate,
-                target_sr=self.target_rate
-            )
-            
-            # Notify callbacks
-            with self._lock:
-                for callback in self._callbacks:
-                    try:
-                        callback(current_time, audio, downsampled)
-                    except Exception as e:
-                        logger.error(f"Error in audio callback: {e}")
-            
-            self.last_data_time = current_time
-            
+            if len(audio) > 0:
+                logger.debug(f"Received {len(audio)} audio samples")
+                
+                # Visualize audio level
+                if self.visualize:
+                    logger.info(f"Audio Level: {visualize_audio_level(audio)}")
+                
+                # Current wall clock time
+                current_time = time.time()
+                
+                # Downsample for VAD
+                downsampled = librosa.resample(
+                    audio,
+                    orig_sr=self.original_rate,
+                    target_sr=self.target_rate
+                )
+                
+                # Notify callbacks
+                with self._lock:
+                    for callback in self._callbacks:
+                        try:
+                            callback(current_time, audio, downsampled)
+                        except Exception as e:
+                            logger.error(f"Error in audio callback: {e}")
+                
+                self.last_data_time = current_time
+                
+            else:
+                logger.warning("Received empty audio chunk")
+                
         except Exception as e:
             logger.error(f"Error processing audio data: {e}")
     
