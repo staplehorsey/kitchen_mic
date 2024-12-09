@@ -87,7 +87,12 @@ class AudioCapture:
         
         # Audio format info (float32)
         self.bytes_per_sample = channels * 4  # 4 bytes per float32
-        self.samples_per_buffer = buffer_size // self.bytes_per_sample
+        # Ensure buffer size is multiple of bytes_per_sample
+        self.buffer_size = (buffer_size // self.bytes_per_sample) * self.bytes_per_sample
+        self.samples_per_buffer = self.buffer_size // self.bytes_per_sample
+        
+        # Ensure chunk size is multiple of bytes_per_sample
+        self.chunk_size = chunk_size * self.bytes_per_sample
         
         # Callbacks for audio data
         self._callbacks = []
