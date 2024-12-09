@@ -158,15 +158,11 @@ class AudioCapture:
     def _process_audio(self, data: bytes) -> None:
         """Process raw audio data and notify callbacks."""
         try:
-            logger.debug(f"Processing {len(data)} bytes of audio data")
-            
             # Convert bytes to numpy array
             audio_data = np.frombuffer(data, dtype=np.float32)
-            logger.debug(f"Converted to numpy array of shape {audio_data.shape}")
             
             # Resample for VAD if needed
             if self.target_rate != self.original_rate:
-                logger.debug(f"Resampling from {self.original_rate}Hz to {self.target_rate}Hz")
                 resampled = librosa.resample(
                     audio_data,
                     orig_sr=self.original_rate,
@@ -174,8 +170,6 @@ class AudioCapture:
                 )
             else:
                 resampled = audio_data
-                
-            logger.debug(f"Resampled audio shape: {resampled.shape}")
             
             # Visualize audio level if enabled
             if self.visualize:
@@ -187,7 +181,6 @@ class AudioCapture:
             with self._lock:
                 for callback in self._callbacks:
                     try:
-                        logger.debug(f"Calling callback {callback.__name__}")
                         callback(timestamp, audio_data, resampled)
                     except Exception as e:
                         logger.error(f"Error in callback {callback.__name__}: {e}")
@@ -198,12 +191,8 @@ class AudioCapture:
     def _capture_loop(self) -> None:
         """Main audio capture loop."""
         logger.debug("Starting capture loop")
-        iteration = 0
         
         while self._running:
-            iteration += 1
-            logger.debug(f"Capture loop iteration {iteration}")
-            
             try:
                 if not self.socket:
                     logger.debug("Socket not connected, attempting to connect...")
@@ -227,7 +216,6 @@ class AudioCapture:
                 
                 # Read chunk size first (4 bytes)
                 try:
-                    logger.debug("Waiting for size header...")
                     size_data = self.socket.recv(4)
                     if not size_data:
                         logger.warning("Connection closed by server (no size data)")
@@ -235,43 +223,51 @@ class AudioCapture:
                         continue
                     
                     chunk_size = struct.unpack('!I', size_data)[0]
-                    logger.debug(f"Size header received: expecting {chunk_size} bytes")
+                    if chunk_size > 10 * 1024 * 1024:  # > 10MB
+                        logger.warning(f"Unusually large chunk size: {chunk_size/1024/1024:.1f}MB")
                     
                     # Read audio data
                     data = b''
                     deadline = time.time() + 1.0  # 1 second timeout for complete chunk
-                    read_attempts = 0
+                    read_start = time.time()
+                    total_reads = 0
+                    total_blocks = 0
                     
                     while len(data) < chunk_size and time.time() < deadline:
-                        read_attempts += 1
                         remaining = chunk_size - len(data)
                         try:
-                            logger.debug(f"Attempt {read_attempts}: reading {remaining} remaining bytes")
                             chunk = self.socket.recv(min(remaining, self.buffer_size))
                             if not chunk:
                                 logger.warning("Connection closed during data read")
                                 raise ConnectionError("Connection closed during data read")
                             data += chunk
-                            logger.debug(f"Read {len(chunk)} bytes, total {len(data)}/{chunk_size}")
+                            total_reads += 1
                         except socket.error as e:
                             if e.errno == errno.EAGAIN:
-                                # Non-blocking socket would block, try again
-                                logger.debug("Socket would block, waiting...")
+                                total_blocks += 1
                                 time.sleep(0.001)
                                 continue
                             raise
                     
+                    read_time = time.time() - read_start
                     if len(data) == chunk_size:
-                        logger.debug(f"Successfully read complete chunk of {len(data)} bytes")
+                        # Only log details periodically to avoid spam
+                        if total_reads > 100 or read_time > 0.1:
+                            logger.debug(
+                                f"Read {len(data)/1024:.1f}KB in {read_time*1000:.0f}ms "
+                                f"({total_reads} reads, {total_blocks} blocks)"
+                            )
                         self._process_audio(data)
                         self.last_data_time = time.time()
                     else:
-                        logger.warning(f"Incomplete chunk after {read_attempts} attempts: got {len(data)}/{chunk_size} bytes")
+                        logger.warning(
+                            f"Incomplete chunk: {len(data)/1024:.1f}KB/{chunk_size/1024:.1f}KB "
+                            f"after {read_time*1000:.0f}ms"
+                        )
                         raise ConnectionError("Incomplete chunk read")
                     
                 except socket.error as e:
                     if e.errno == errno.EAGAIN:
-                        logger.debug("Socket would block on size header, retrying...")
                         time.sleep(0.001)
                         continue
                     logger.error(f"Socket error: {e}", exc_info=True)
