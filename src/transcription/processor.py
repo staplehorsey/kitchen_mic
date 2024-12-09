@@ -94,7 +94,7 @@ class TranscriptionProcessor:
                 task="transcribe",
                 best_of=5,  # Increase beam search
                 temperature=0.0,  # Reduce randomness
-                fp16=torch.cuda.is_available()  # Use FP16 if on GPU
+                fp16=False if self.device == "cpu" else torch.cuda.is_available()  # Use FP16 only if using GPU
             )
             
             # Create transcription message

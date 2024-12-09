@@ -74,7 +74,13 @@ class KitchenMicService:
             summary = SummaryProcessor()
             
             # Initialize audio and VAD
-            vad_config = VADConfig(**self.config['vad'])
+            vad_config = VADConfig(
+                threshold=self.config['vad']['threshold'],
+                conversation_threshold=self.config['vad']['threshold'],
+                conversation_cooldown_sec=self.config['vad']['conversation_cooldown_sec'],
+                min_conversation_duration_sec=self.config['vad']['min_conversation_sec'],
+                sample_rate=self.config['audio']['vad']['sample_rate']
+            )
             vad = VADProcessor(config=vad_config)
             audio = AudioCapture()
             
