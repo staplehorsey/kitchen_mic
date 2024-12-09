@@ -58,13 +58,14 @@ conversation:
 # Models
 models:
   transcription:
-    name: "large"
+    name: "large"  # Using large model for better quality
     cache_dir: ~/.cache/kitchen_mic/models/transcription
     temperature: 0.7
     max_tokens: 100
     endpoint: "http://rat.local:8080/v1"
     request_timeout: 30
     max_retries: 3
+    device: "cpu"  # Force CPU usage to avoid CUDA memory issues
   
   llm:
     # Remote LLM endpoint

@@ -19,14 +19,19 @@ logger = logging.getLogger(__name__)
 class TranscriptionProcessor:
     """Manages Whisper model and provides transcription processing."""
     
-    def __init__(self, model_name: str = "large"):
+    def __init__(self, model_name: str = "base", device: Optional[str] = None):
         """Initialize transcription processor.
         
         Args:
             model_name: Whisper model name to load
+            device: Device to use ("cpu" or "cuda"), defaults to auto-detect
         """
-        # Load model
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        # Set device
+        if device:
+            self.device = device
+        else:
+            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+            
         logger.info(f"Loading Whisper model '{model_name}' on {self.device}")
         
         try:

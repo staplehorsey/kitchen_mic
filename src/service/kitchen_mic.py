@@ -68,7 +68,8 @@ class KitchenMicService:
             
             # Initialize processors
             transcription = TranscriptionProcessor(
-                model_name=self.config['models']['transcription']['name']
+                model_name=self.config['models']['transcription']['name'],
+                device=self.config['models']['transcription'].get('device')
             )
             summary = SummaryProcessor()
             
