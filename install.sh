@@ -202,7 +202,27 @@ main() {
     # Install systemd service for current user
     log "Setting up systemd service..."
     mkdir -p ~/.config/systemd/user/
-    envsubst < config/systemd/kitchen-mic.service > ~/.config/systemd/user/kitchen-mic.service
+    
+    # Create service file with absolute paths
+    PROJECT_DIR="$HOME/Projects/kitchen_mic"
+    cat > ~/.config/systemd/user/kitchen-mic.service << EOL
+[Unit]
+Description=Kitchen Mic Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=$PROJECT_DIR/venv/bin/python -m src.service.kitchen_mic start --config $PROJECT_DIR/config/default.yaml
+WorkingDirectory=$PROJECT_DIR
+Environment=PYTHONPATH=$PROJECT_DIR
+Environment=PYTHONUNBUFFERED=1
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+EOL
+
     systemctl --user daemon-reload
     systemctl --user enable kitchen-mic
     
