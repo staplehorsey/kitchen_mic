@@ -241,6 +241,16 @@ class AudioCapture:
             # Find microphone
             self.device_index = self._find_microphone()
             
+            # Get device info and validate configuration
+            info = self.pyaudio.get_device_info_by_index(self.device_index)
+            device_channels = min(info['maxInputChannels'], 2)  # Use at most 2 channels
+            if device_channels < 1:
+                raise ValueError(f"Device {info['name']} has no input channels")
+            
+            # Adjust our configuration to match device capabilities
+            self.channels = device_channels
+            logger.info(f"Using {self.channels} channel(s) from device {info['name']}")
+            
             # Open audio stream with larger buffer for stability
             frames_per_buffer = max(2048, self.chunk_size * 4)  # Increased buffer size
             logger.info(f"Using frames_per_buffer={frames_per_buffer}")
@@ -255,11 +265,6 @@ class AudioCapture:
                 stream_callback=self._audio_callback,
                 start=False  # Don't start immediately
             )
-            
-            # Configure stream parameters for better stability
-            info = self.pyaudio.get_device_info_by_index(self.device_index)
-            if info['maxInputChannels'] > self.channels:
-                logger.info(f"Device supports {info['maxInputChannels']} channels, using {self.channels}")
             
             # Start the stream
             self.stream.start_stream()
