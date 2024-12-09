@@ -157,17 +157,14 @@ class ConfigManager:
             raise
 
     def _validate_config(self) -> None:
-        """Validate configuration values."""
-        # Ensure required sections exist
-        required_sections = ['storage', 'audio', 'vad', 'conversation', 'models', 'service']
-        for section in required_sections:
-            if section not in self.config:
-                raise ValueError(f"Missing required config section: {section}")
-
-        # Validate storage configuration
-        self._validate_storage_config()
+        """Validate configuration."""
+        # Validate required sections
+        required = ['storage', 'audio', 'vad', 'models', 'service']
+        if not all(k in self.config for k in required):
+            raise ValueError("Missing required configuration sections")
         
-        # Validate remote services
+        # Validate each section
+        self._validate_storage_config()
         self._validate_audio_source()
         self._validate_llm_endpoint()
 
@@ -193,37 +190,37 @@ class ConfigManager:
 
         logging.info(f"Storage directory {base_path} is valid and writable")
 
-    def _find_usb_storage(self) -> Optional[Path]:
-        """Find suitable USB storage device.
+    def _validate_audio_source(self) -> None:
+        """Validate audio source configuration."""
+        audio_config = self.config.get('audio', {})
+        source = audio_config.get('source', {})
         
-        Returns:
-            Path to USB storage if found, None otherwise.
-        """
-        min_space_gb = self.config['storage']['min_free_space_gb']
-        
-        for mount_point in SystemInfo.get_removable_mount_points():
-            if not mount_point.exists():
-                continue
-                
-            # Check each mounted device
-            for volume in mount_point.iterdir():
-                if not volume.is_dir():
-                    continue
-                    
-                try:
-                    stats = os.statvfs(volume)
-                    free_gb = (stats.f_bavail * stats.f_frsize) / (1024**3)
-                    
-                    if free_gb >= min_space_gb:
-                        target_dir = volume / "kitchen_mic_data"
-                        target_dir.mkdir(exist_ok=True)
-                        return target_dir
-                        
-                except Exception as e:
-                    logger.debug(f"Skipping volume {volume}: {e}")
-                    continue
-                    
-        return None
+        # Validate required fields
+        required = ['type', 'buffer_size']
+        if not all(k in source for k in required):
+            raise ValueError("Missing required audio source configuration")
+            
+        # Validate source type
+        if source['type'] != 'microphone':
+            raise ValueError(f"Invalid audio source type: {source['type']}")
+            
+        # Validate audio capture settings
+        capture = audio_config.get('capture', {})
+        required_capture = ['sample_rate', 'channels', 'chunk_size']
+        if not all(k in capture for k in required_capture):
+            raise ValueError("Missing required audio capture configuration")
+            
+        # Validate sample rates and chunk sizes
+        if not (8000 <= capture['sample_rate'] <= 192000):
+            raise ValueError(f"Invalid sample rate: {capture['sample_rate']}")
+            
+        if not (1 <= capture['channels'] <= 2):
+            raise ValueError(f"Invalid channel count: {capture['channels']}")
+            
+        if not (64 <= capture['chunk_size'] <= 8192):
+            raise ValueError(f"Invalid chunk size: {capture['chunk_size']}")
+            
+        logger.info("Audio configuration validated successfully")
 
     def _validate_llm_endpoint(self) -> None:
         """Validate LLM endpoint configuration."""
@@ -289,3 +286,35 @@ class ConfigManager:
             (d for d in devices if d['index'] == device_index),
             None
         )
+
+    def _find_usb_storage(self) -> Optional[Path]:
+        """Find suitable USB storage device.
+        
+        Returns:
+            Path to USB storage if found, None otherwise.
+        """
+        min_space_gb = self.config['storage']['min_free_space_gb']
+        
+        for mount_point in SystemInfo.get_removable_mount_points():
+            if not mount_point.exists():
+                continue
+                
+            # Check each mounted device
+            for volume in mount_point.iterdir():
+                if not volume.is_dir():
+                    continue
+                    
+                try:
+                    stats = os.statvfs(volume)
+                    free_gb = (stats.f_bavail * stats.f_frsize) / (1024**3)
+                    
+                    if free_gb >= min_space_gb:
+                        target_dir = volume / "kitchen_mic_data"
+                        target_dir.mkdir(exist_ok=True)
+                        return target_dir
+                        
+                except Exception as e:
+                    logger.debug(f"Skipping volume {volume}: {e}")
+                    continue
+                    
+        return None

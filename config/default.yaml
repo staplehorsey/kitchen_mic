@@ -25,7 +25,7 @@ audio:
   source:
     type: "microphone"
     buffer_size: 4096     # Audio buffer size
-    visualize: true      # Show audio level visualization
+    visualize: false # Show audio level visualization
   # Original high-quality capture
   capture:
     sample_rate: 44000   # Original sample rate
@@ -81,7 +81,7 @@ service:
   # Log file location (uses system logger if empty)
   log_file: "~/.local/share/kitchen_mic/kitchen_mic.log"
   # Log level (DEBUG, INFO, WARNING, ERROR)
-  log_level: "DEBUG"
+  log_level: "INFO"
   # PID file location
   pid_file: /var/run/kitchen_mic.pid
   # Health check interval in seconds
@@ -95,7 +95,7 @@ service:
 
 # Logging settings
 logging:
-  level: "DEBUG"
+  level: "INFO"
   file: "/var/log/kitchen_mic/kitchen_mic.log"
   max_size_mb: 100
   backup_count: 5
