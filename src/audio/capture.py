@@ -140,7 +140,12 @@ class AudioCapture:
     def _audio_callback(self, in_data, frame_count, time_info, status):
         """Handle incoming audio data from PyAudio."""
         if status:
-            logger.warning(f"Status: {status}")
+            if status & pyaudio.paInputOverflow:
+                logger.warning("Audio input overflow - some audio data was dropped")
+            elif status & pyaudio.paInputUnderflow:
+                logger.warning("Audio input underflow - gaps in audio data")
+            else:
+                logger.warning(f"PyAudio status: {status}")
 
         try:
             # Convert to numpy array (float32)
@@ -236,17 +241,27 @@ class AudioCapture:
             # Find microphone
             self.device_index = self._find_microphone()
             
-            # Open audio stream
+            # Open audio stream with larger buffer for stability
+            frames_per_buffer = max(2048, self.chunk_size * 4)  # Increased buffer size
+            logger.info(f"Using frames_per_buffer={frames_per_buffer}")
+            
             self.stream = self.pyaudio.open(
                 format=self.format,
                 channels=self.channels,
                 rate=self.original_rate,
                 input=True,
                 input_device_index=self.device_index,
-                frames_per_buffer=self.chunk_size,
-                stream_callback=self._audio_callback
+                frames_per_buffer=frames_per_buffer,
+                stream_callback=self._audio_callback,
+                start=False  # Don't start immediately
             )
             
+            # Configure stream parameters for better stability
+            info = self.pyaudio.get_device_info_by_index(self.device_index)
+            if info['maxInputChannels'] > self.channels:
+                logger.info(f"Device supports {info['maxInputChannels']} channels, using {self.channels}")
+            
+            # Start the stream
             self.stream.start_stream()
             logger.info("Audio capture started successfully")
             

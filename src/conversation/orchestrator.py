@@ -67,9 +67,9 @@ class ConversationOrchestrator:
         try:
             # Add to queue, with timeout to avoid blocking detector
             self.queue.put(conversation, timeout=1.0)
-            logger.debug(
-                f"Queued conversation {conversation.id} "
-                f"({conversation.duration:.1f}s)"
+            logger.info(
+                f"Queued conversation {conversation.id} for processing "
+                f"(duration: {conversation.duration:.1f}s)"
             )
         except queue.Full:
             logger.error("Queue full, dropping conversation")
@@ -81,35 +81,35 @@ class ConversationOrchestrator:
             conversation: Conversation to process
         """
         try:
+            logger.info(f"=== Processing conversation {conversation.id} ===")
+            
             # Step 1: Transcription
+            logger.info("Starting transcription...")
             trans_msg = self.transcription.process_conversation(conversation)
             if not trans_msg or not trans_msg.transcription:
                 logger.error(f"Transcription failed for {conversation.id}")
                 return
+            logger.info(f"Transcription complete: {trans_msg.transcription[:100]}...")
             
             # Step 2: Summary
+            logger.info("Generating summary...")
             summary_msg = self.summary.process_conversation(trans_msg)
             if not summary_msg or not summary_msg.summary:
                 logger.error(f"Summary failed for {conversation.id}")
                 return
+            logger.info(f"Summary complete: {summary_msg.summary[:100]}...")
             
             # Step 3: Save everything
+            logger.info("Saving conversation data...")
             self.storage.save_conversation(
                 conversation=conversation,
                 transcription=trans_msg,
                 summary=summary_msg
             )
-            
-            logger.info(
-                f"Completed {conversation.id}: "
-                f"{summary_msg.summary.get('title', 'Untitled')}"
-            )
+            logger.info(f"=== Finished processing conversation {conversation.id} ===")
             
         except Exception as e:
-            logger.error(
-                f"Error processing conversation {conversation.id}: {e}",
-                exc_info=True
-            )
+            logger.error(f"Error processing conversation: {e}", exc_info=True)
     
     def _worker_loop(self) -> None:
         """Background worker loop to process conversations."""

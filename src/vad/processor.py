@@ -64,7 +64,7 @@ class VADProcessor:
         self.config = config or VADConfig()
         
         # Load model
-        logger.info("Loading Silero VAD model...")
+        logger.info("Loading Silero VAD model with threshold %.2f", self.config.threshold)
         torch.set_num_threads(1)  # Optimize for real-time processing
         
         # Load model from hub
@@ -101,7 +101,8 @@ class VADProcessor:
         # Audio buffer for VAD processing
         self._audio_buffer = collections.deque(maxlen=self.config.window_size_samples * 4)  # Allow for larger buffer
         
-        logger.info("VAD processor initialized")
+        logger.info("VAD processor initialized with window size %d samples, conversation window %.1f sec", 
+                   self.config.window_size_samples, self.config.conversation_window_sec)
     
     def add_audio(self, audio_chunk: np.ndarray) -> None:
         """Add audio chunk for processing.
@@ -114,8 +115,10 @@ class VADProcessor:
             
         try:
             self._input_queue.put_nowait(audio_chunk)
+            logger.debug("Added audio chunk of size %d to processing queue", len(audio_chunk))
         except Full:
-            logger.warning("Input queue full, dropping audio chunk")
+            logger.warning("Input queue full (size %d), dropping audio chunk of size %d", 
+                         self._input_queue.qsize(), len(audio_chunk))
     
     def get_state(self) -> VADState:
         """Get current VAD state.
@@ -138,9 +141,10 @@ class VADProcessor:
                 
                 # Process audio and update state
                 self._process_audio(audio_chunk)
+                logger.debug("Processed audio chunk of size %d", len(audio_chunk))
                 
             except Exception as e:
-                logger.error(f"Error in VAD processing: {e}")
+                logger.error("Error in VAD processing loop: %s", str(e), exc_info=True)
                 time.sleep(0.1)
     
     def _process_audio(self, audio_chunk: np.ndarray) -> None:
@@ -168,6 +172,7 @@ class VADProcessor:
                 with torch.no_grad():
                     tensor = torch.from_numpy(chunk).float()
                     prob = float(self.model(tensor, self.config.sample_rate).item())
+                    logger.debug("VAD probability: %.3f (threshold: %.3f)", prob, self.config.threshold)
                     
                     # Apply exponential smoothing to probability
                     if self._recent_probs:
@@ -189,6 +194,9 @@ class VADProcessor:
                             if not self._first_speech_time:
                                 self._first_speech_time = current_time
                                 first_speech_time = current_time
+                            logger.info("Speech segment started at %s (prob: %.3f)", 
+                                      datetime.datetime.fromtimestamp(current_time).strftime('%H:%M:%S.%f')[:-3],
+                                      prob)
                         self._last_speech_prob_time = current_time
                     elif self._speech_started:
                         # Check if silence duration exceeds cooldown
@@ -198,6 +206,9 @@ class VADProcessor:
                             speech_duration = current_time - self._speech_start_time
                             if speech_duration >= self.config.min_speech_duration_ms / 1000:
                                 self._speech_segments.append((self._speech_start_time, speech_duration))
+                                logger.info("Speech segment ended at %s (duration: %.2f sec)", 
+                                          datetime.datetime.fromtimestamp(current_time).strftime('%H:%M:%S.%f')[:-3],
+                                          speech_duration)
                             self._speech_started = False
                             self._last_speech_end_time = current_time
                     
@@ -213,7 +224,9 @@ class VADProcessor:
                                 self._conversation_started = True
                                 self._conversation_start_time = self._first_speech_time  # Start from first speech
                                 conversation_start = self._conversation_start_time
-                                logger.info(f"Conversation started at {datetime.datetime.fromtimestamp(self._conversation_start_time).strftime('%H:%M:%S')}")
+                                logger.info("Conversation started at %s (total speech duration: %.2f sec)", 
+                                          datetime.datetime.fromtimestamp(self._conversation_start_time).strftime('%H:%M:%S.%f')[:-3],
+                                          speech_duration)
                     else:
                         # Check if we should end the conversation
                         silence_duration = current_time - self._last_speech_prob_time
@@ -221,9 +234,14 @@ class VADProcessor:
                         # End conversation after consecutive silence
                         if silence_duration >= self.config.conversation_cooldown_sec:
                             if self._conversation_start_time:
-                                logger.info(f"Conversation ended at {datetime.datetime.fromtimestamp(current_time).strftime('%H:%M:%S')}")
-                                self._conversation_started = False
+                                total_duration = current_time - self._conversation_start_time
+                                logger.info("Conversation ended at %s (total duration: %.2f sec, silence: %.2f sec)", 
+                                          datetime.datetime.fromtimestamp(current_time).strftime('%H:%M:%S.%f')[:-3],
+                                          total_duration,
+                                          silence_duration)
+                                self._conversation_end = current_time
                                 conversation_end = current_time
+                                self._conversation_started = False
                                 self._conversation_start_time = None
                                 # Reset first speech time for next conversation
                                 self._first_speech_time = None
@@ -247,7 +265,7 @@ class VADProcessor:
                             speech_segments=list(self._speech_segments)
                         )
             except Exception as e:
-                logger.error(f"Error processing audio chunk: {e}")
+                logger.error("Error processing audio chunk: %s", str(e), exc_info=True)
                 # Keep the state as is and continue processing
     
     def _process_speech_state(self, is_speech: bool, current_time: float):
@@ -256,7 +274,7 @@ class VADProcessor:
             # Update speech timing
             if not self._speech_start_time:
                 self._speech_start_time = current_time
-                logger.info(f"First speech detected at {datetime.datetime.fromtimestamp(current_time).strftime('%H:%M:%S')}")
+                logger.info(f"First speech detected at {datetime.datetime.fromtimestamp(current_time).strftime('%H:%M:%S.%f')[:-3]}")
             
             self._last_speech_prob_time = current_time
             self._silence_duration = 0.0
@@ -267,7 +285,7 @@ class VADProcessor:
                 if self._speech_duration >= self.config.min_conversation_duration_sec:
                     self._conversation_started = True
                     self._conversation_start_time = self._speech_start_time  # Use first speech time
-                    logger.info(f"Conversation started at {datetime.datetime.fromtimestamp(self._conversation_start_time).strftime('%H:%M:%S')}")
+                    logger.info(f"Conversation started at {datetime.datetime.fromtimestamp(self._conversation_start_time).strftime('%H:%M:%S.%f')[:-3]}")
         else:
             # Update silence timing
             if self._last_speech_prob_time:
@@ -276,7 +294,7 @@ class VADProcessor:
                 # Check if silence threshold reached
                 if self._conversation_started and self._silence_duration >= self.config.conversation_cooldown_sec:
                     self._conversation_end = current_time
-                    logger.info(f"Conversation ended at {datetime.datetime.fromtimestamp(current_time).strftime('%H:%M:%S')}")
+                    logger.info(f"Conversation ended at {datetime.datetime.fromtimestamp(current_time).strftime('%H:%M:%S.%f')[:-3]}")
                     
                     # Reset state for next conversation
                     self._conversation_started = False
