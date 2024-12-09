@@ -236,6 +236,7 @@ class AudioCapture:
             return
         
         logger.info("Starting audio capture")
+        self._running = True
         
         try:
             # Initialize PyAudio
@@ -243,42 +244,20 @@ class AudioCapture:
             
             # Find microphone
             self.device_index = self._find_microphone()
-            if self.device_index is None:
-                raise ValueError("No microphone found")
             
-            # Get device info
-            info = self.pyaudio.get_device_info_by_index(self.device_index)
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Selected device info:")
-                logger.debug(f"  Name: {info['name']}")
-                logger.debug(f"  Index: {self.device_index}")
-                logger.debug(f"  Sample rate: {info['defaultSampleRate']}")
-                logger.debug(f"  Max input channels: {info['maxInputChannels']}")
-            
-            # Use device's reported channel count
-            self.channels = int(info['maxInputChannels'])
-            if self.channels == 0:
-                # If device reports 0 channels, try 2 as it worked before
-                self.channels = 2
-            
-            # Open audio stream with larger buffer for stability
-            frames_per_buffer = max(2048, self.chunk_size * 4)
-            logger.debug(f"Using buffer size: {frames_per_buffer}")
-            
+            # Open audio stream with larger buffer
             self.stream = self.pyaudio.open(
                 format=self.format,
-                channels=self.channels,
+                channels=2,  # Use 2 channels as it worked before
                 rate=self.original_rate,
                 input=True,
                 input_device_index=self.device_index,
-                frames_per_buffer=frames_per_buffer,
-                stream_callback=self._audio_callback,
-                start=False
+                frames_per_buffer=4096,  # Use larger buffer size
+                stream_callback=self._audio_callback
             )
             
-            # Start the stream
             self.stream.start_stream()
-            logger.info("Audio capture started")
+            logger.info("Audio capture started successfully")
             
         except Exception as e:
             logger.error(f"Error starting audio capture: {e}")
