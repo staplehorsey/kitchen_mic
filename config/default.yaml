@@ -28,6 +28,7 @@ audio:
     port: 12345
     reconnect_delay: 5.0  # Seconds between reconnection attempts
     buffer_size: 4096     # Network buffer size
+    visualize: true      # Show audio level visualization
   # Original high-quality capture
   capture:
     sample_rate: 44100

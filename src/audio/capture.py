@@ -24,6 +24,21 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def visualize_audio_level(audio_chunk: np.ndarray, width: int = 50) -> str:
+    """Create a visual representation of audio level.
+    
+    Args:
+        audio_chunk: Audio samples
+        width: Width of visualization
+        
+    Returns:
+        ASCII visualization of audio level
+    """
+    level = float(np.abs(audio_chunk).mean())
+    normalized = min(1.0, level * 5)  # Amplify for better visibility
+    bars = int(normalized * width)
+    return f"[{'=' * bars}{' ' * (width - bars)}] ({level:.4f})"
+
 class AudioCapture:
     """Captures audio from network stream and provides dual-stream processing."""
     
@@ -36,6 +51,7 @@ class AudioCapture:
         target_rate: int = 16000,
         channels: int = 1,
         chunk_size: int = 512,  # Match server's chunk size
+        visualize: bool = True
     ):
         """Initialize audio capture.
         
@@ -47,6 +63,7 @@ class AudioCapture:
             target_rate: Target sample rate for downsampling (Hz)
             channels: Number of audio channels
             chunk_size: Audio chunk size in samples
+            visualize: Whether to show audio level visualization
         """
         self.host = host
         self.port = port
@@ -55,6 +72,7 @@ class AudioCapture:
         self.target_rate = target_rate
         self.channels = channels
         self.chunk_size = chunk_size
+        self.visualize = visualize
         
         # Socket and thread state
         self.socket: Optional[socket.socket] = None
@@ -131,6 +149,10 @@ class AudioCapture:
         try:
             # Convert to float32 array
             audio = np.frombuffer(data, dtype=np.float32)
+            
+            # Visualize audio level
+            if self.visualize and len(audio) > 0:
+                logger.info(f"Audio Level: {visualize_audio_level(audio)}")
             
             # Current wall clock time
             current_time = time.time()
