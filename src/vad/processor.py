@@ -34,7 +34,6 @@ class VADConfig:
     min_silence_duration_ms: int = 3000  # Cooldown period for speech (3 seconds)
     speech_pad_ms: int = 100  # Padding around speech segments
     sample_rate: int = 16000  # Expected sample rate
-    context_length: int = 64  # Context length for VAD model (reduced from 224)
     
     # Conversation detection parameters
     conversation_window_sec: float = 10.0  # Window to aggregate speech probabilities
@@ -65,17 +64,14 @@ class VADProcessor:
         self.config = config or VADConfig()
         
         # Load model
-        logger.info("Loading Silero VAD model with threshold %.2f and context length %d", 
-                   self.config.threshold, self.config.context_length)
+        logger.info("Loading Silero VAD model with threshold %.2f", self.config.threshold)
         torch.set_num_threads(1)  # Optimize for real-time processing
         
-        # Load model from hub with custom context length
+        # Load model from hub
         self.model, _ = torch.hub.load(
             repo_or_dir='snakers4/silero-vad',
             model='silero_vad',
-            force_reload=False,
-            onnx=False,
-            max_context=self.config.context_length
+            force_reload=False
         )
         self.model = self.model.float()
         
