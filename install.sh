@@ -18,7 +18,6 @@ warn() {
 
 error() {
     echo -e "${RED}[ERROR]${NC} $1"
-    cleanup
     exit 1
 }
 
@@ -72,98 +71,18 @@ cleanup() {
 # Trap errors
 trap 'error "Installation failed! See error message above."' ERR
 
-# Check Ubuntu version and Python availability
-check_system() {
-    if ! grep -q 'Ubuntu' /etc/os-release; then
-        error "This script is designed for Ubuntu only"
-    fi
-    
-    # Get Ubuntu version
-    ubuntu_version=$(grep -oP 'VERSION_ID="\K[^"]+' /etc/os-release)
-    log "Detected Ubuntu version: $ubuntu_version"
-    
-    # Install Python 3.11
-    log "Installing Python 3.11..."
-    sudo apt-get install -y software-properties-common
-    sudo add-apt-repository -y ppa:deadsnakes/ppa
-    sudo apt-get update
-    sudo apt-get install -y python3.11 python3.11-venv python3.11-dev
-}
-
-# Create kitchen_mic user
-create_user() {
-    log "Creating kitchen_mic user..."
-    
-    # Create user if it doesn't exist
-    if ! id -u kitchen_mic >/dev/null 2>&1; then
-        sudo useradd -m -s /bin/bash kitchen_mic
-    fi
-}
-
-# Install system dependencies
-install_system_deps() {
-    log "Installing system dependencies..."
-    
-    # Install required packages
-    sudo apt-get install -y \
-        python3-pip \
-        portaudio19-dev \
-        libsndfile1 \
-        ffmpeg \
-        git
-}
-
 # Set up Python virtual environment
 setup_venv() {
     log "Setting up Python virtual environment..."
     
-    # Create and set up the installation directory
-    sudo mkdir -p /opt/kitchen_mic
-    sudo chown kitchen_mic:kitchen_mic /opt/kitchen_mic
-    
-    # Copy project files
-    sudo cp -r . /opt/kitchen_mic/
-    sudo chown -R kitchen_mic:kitchen_mic /opt/kitchen_mic
-    
-    # Create venv as kitchen_mic user with Python 3.11
-    sudo -u kitchen_mic python3.11 -m venv /opt/kitchen_mic/venv
+    # Create venv in project directory
+    python3 -m venv venv
     
     # Install dependencies and package
-    cd /opt/kitchen_mic
-    sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install --upgrade pip
-    sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install "setuptools>=68.0.0" wheel
-    sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install -r requirements.txt
-    sudo -u kitchen_mic /opt/kitchen_mic/venv/bin/pip install -e .
-    cd - >/dev/null
-}
-
-# Install Kitchen Mic
-install_kitchen_mic() {
-    log "Installing Kitchen Mic..."
-    
-    # Install the service executable
-    sudo tee /usr/local/bin/kitchen-mic > /dev/null << 'EOL'
-#!/bin/bash
-cd /opt/kitchen_mic
-source /opt/kitchen_mic/venv/bin/activate
-exec python -m src.service.kitchen_mic --config /etc/kitchen_mic/config.yaml "$@"
-EOL
-
-    sudo chmod +x /usr/local/bin/kitchen-mic
-    
-    # Create config directory and copy default config
-    sudo mkdir -p /etc/kitchen_mic
-    sudo cp config/default.yaml /etc/kitchen_mic/config.yaml
-    sudo chown -R kitchen_mic:kitchen_mic /etc/kitchen_mic
-    sudo chmod 644 /etc/kitchen_mic/config.yaml
-    
-    # Create log directory
-    sudo mkdir -p /var/log/kitchen_mic
-    sudo chown kitchen_mic:kitchen_mic /var/log/kitchen_mic
-    
-    # Install systemd service
-    sudo cp config/systemd/kitchen-mic.service /etc/systemd/system/
-    sudo systemctl daemon-reload
+    ./venv/bin/pip install --upgrade pip
+    ./venv/bin/pip install "setuptools>=68.0.0" wheel
+    ./venv/bin/pip install -r requirements.txt
+    ./venv/bin/pip install -e .
 }
 
 # Set up storage directories
@@ -191,9 +110,6 @@ main() {
         exit 0
     fi
 
-    # Start fresh
-    cleanup
-    
     log "Installing Kitchen Mic..."
     
     setup_venv
@@ -227,6 +143,12 @@ EOL
     systemctl --user enable kitchen-mic
     
     log "Installation complete!"
+    log "To start the service:"
+    log "  systemctl --user start kitchen-mic"
+    log "To check status:"
+    log "  systemctl --user status kitchen-mic"
+    log "To view logs:"
+    log "  journalctl --user -u kitchen-mic -f"
 }
 
 # Handle command line arguments
@@ -236,4 +158,4 @@ if [ "$1" == "--uninstall" ]; then
 fi
 
 # Run main installation
-main
+main "$@"
