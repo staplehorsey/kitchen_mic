@@ -20,7 +20,7 @@ import librosa
 # Configure logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.DEBUG  # Force DEBUG level
 )
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ class AudioCapture:
         
         # Socket and thread state
         self.socket: Optional[socket.socket] = None
-        self.running = False
+        self._running = False
         self.capture_thread: Optional[threading.Thread] = None
         
         # Connection state
@@ -126,11 +126,12 @@ class AudioCapture:
         """
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            logger.debug(f"Attempting to connect to {self.host}:{self.port}")
             self.socket.connect((self.host, self.port))
+            logger.info(f"Connected to audio source at {self.host}:{self.port}")
             self.connected = True
             self.last_data_time = time.time()
             self.reconnect_delay = 1.0  # Reset delay on successful connection
-            logger.info(f"Connected to audio source at {self.host}:{self.port}")
             return True
         
         except socket.error as e:
@@ -187,37 +188,62 @@ class AudioCapture:
     
     def _capture_loop(self) -> None:
         """Main capture loop."""
-        while self.running:
+        logger.debug("Starting capture loop")
+        while self._running:
             try:
-                # Check connection
-                if not self.connected:
-                    if not self._connect():
-                        time.sleep(self.reconnect_delay)
-                        self.reconnect_delay = min(
-                            self.reconnect_delay * 2,
-                            self.max_reconnect_delay
-                        )
-                        continue
-                
-                # Read data
-                data = self.socket.recv(self.buffer_size)
-                if not data:
-                    logger.warning("No data received, reconnecting...")
-                    self._cleanup()
+                if not self.socket:
+                    logger.debug("Socket not connected, attempting to connect...")
+                    self._connect()
                     continue
                 
-                # Process audio
-                self._process_audio(data)
+                # Read chunk size first (4 bytes)
+                size_data = self.socket.recv(4)
+                if not size_data:
+                    logger.warning("Connection closed by server (no size data)")
+                    self.socket.close()
+                    self.socket = None
+                    continue
+                
+                chunk_size = struct.unpack('!I', size_data)[0]
+                logger.debug(f"Expecting chunk of size {chunk_size} bytes")
+                
+                # Read audio data
+                data = b''
+                while len(data) < chunk_size:
+                    remaining = chunk_size - len(data)
+                    chunk = self.socket.recv(min(remaining, self.buffer_size))
+                    if not chunk:
+                        logger.warning("Connection closed by server (incomplete data)")
+                        break
+                    data += chunk
+                
+                if len(data) == chunk_size:
+                    logger.debug(f"Received complete chunk of {len(data)} bytes")
+                    self._process_audio(data)
+                else:
+                    logger.warning(f"Incomplete chunk: got {len(data)}/{chunk_size} bytes")
+                    self.socket.close()
+                    self.socket = None
                 
             except socket.error as e:
+                if e.errno == errno.EAGAIN:
+                    # Non-blocking socket would block
+                    time.sleep(0.001)
+                    continue
+                
                 logger.error(f"Socket error: {e}")
-                self._cleanup()
-                time.sleep(1.0)
-            
+                if self.socket:
+                    self.socket.close()
+                    self.socket = None
+                time.sleep(1)  # Wait before reconnecting
+                
             except Exception as e:
                 logger.error(f"Error in capture loop: {e}")
-                time.sleep(0.1)
-    
+                if self.socket:
+                    self.socket.close()
+                    self.socket = None
+                time.sleep(1)  # Wait before reconnecting
+
     def _cleanup(self) -> None:
         """Clean up socket connection."""
         if self.socket:
@@ -235,12 +261,12 @@ class AudioCapture:
     
     def start(self) -> None:
         """Start audio capture."""
-        if self.running:
+        if self._running:
             logger.warning("Audio capture already running")
             return
         
         logger.info("Starting audio capture")
-        self.running = True
+        self._running = True
         
         # Start capture thread
         self.capture_thread = threading.Thread(target=self._capture_loop)
@@ -248,11 +274,11 @@ class AudioCapture:
     
     def stop(self) -> None:
         """Stop audio capture."""
-        if not self.running:
+        if not self._running:
             return
         
         logger.info("Stopping audio capture")
-        self.running = False
+        self._running = False
         
         # Clean up
         self._cleanup()
