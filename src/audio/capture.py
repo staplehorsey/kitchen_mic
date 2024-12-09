@@ -92,7 +92,14 @@ class AudioCapture:
         self.samples_per_buffer = self.buffer_size // self.bytes_per_sample
         
         # Ensure chunk size is multiple of bytes_per_sample
-        self.chunk_size = chunk_size * self.bytes_per_sample
+        # chunk_size is in samples, convert to bytes
+        self.samples_per_chunk = chunk_size
+        self.chunk_size = self.samples_per_chunk * self.bytes_per_sample
+        
+        logger.info(
+            f"Audio format: {channels} channels, {original_rate}Hz, "
+            f"chunk_size={self.chunk_size} bytes ({self.samples_per_chunk} samples)"
+        )
         
         # Callbacks for audio data
         self._callbacks = []
@@ -219,65 +226,57 @@ class AudioCapture:
                     self._cleanup()
                     continue
                 
-                # Read chunk size first (4 bytes)
-                try:
-                    size_data = self.socket.recv(4)
-                    if not size_data:
-                        logger.warning("Connection closed by server (no size data)")
-                        self._cleanup()
-                        continue
-                    
-                    chunk_size = struct.unpack('!I', size_data)[0]
-                    if chunk_size > 10 * 1024 * 1024:  # > 10MB
-                        logger.warning(f"Unusually large chunk size: {chunk_size/1024/1024:.1f}MB")
-                    
-                    # Read audio data
-                    data = b''
-                    deadline = time.time() + 1.0  # 1 second timeout for complete chunk
-                    read_start = time.time()
-                    total_reads = 0
-                    total_blocks = 0
-                    
-                    while len(data) < chunk_size and time.time() < deadline:
-                        remaining = chunk_size - len(data)
-                        try:
-                            chunk = self.socket.recv(min(remaining, self.buffer_size))
-                            if not chunk:
-                                logger.warning("Connection closed during data read")
-                                raise ConnectionError("Connection closed during data read")
-                            data += chunk
-                            total_reads += 1
-                        except socket.error as e:
-                            if e.errno == errno.EAGAIN:
-                                total_blocks += 1
-                                time.sleep(0.001)
-                                continue
-                            raise
-                    
-                    read_time = time.time() - read_start
-                    if len(data) == chunk_size:
-                        # Only log details periodically to avoid spam
-                        if total_reads > 100 or read_time > 0.1:
-                            logger.debug(
-                                f"Read {len(data)/1024:.1f}KB in {read_time*1000:.0f}ms "
-                                f"({total_reads} reads, {total_blocks} blocks)"
-                            )
-                        self._process_audio(data)
-                        self.last_data_time = time.time()
-                    else:
-                        logger.warning(
-                            f"Incomplete chunk: {len(data)/1024:.1f}KB/{chunk_size/1024:.1f}KB "
-                            f"after {read_time*1000:.0f}ms"
-                        )
-                        raise ConnectionError("Incomplete chunk read")
-                    
-                except socket.error as e:
-                    if e.errno == errno.EAGAIN:
-                        time.sleep(0.001)
-                        continue
-                    logger.error(f"Socket error: {e}", exc_info=True)
-                    raise
+                # Get expected chunk size from socket
+                chunk_size = self.chunk_size
+                if chunk_size > 10 * 1024 * 1024:  # > 10MB
+                    logger.error(f"Invalid chunk size: {chunk_size/1024/1024:.1f}MB")
+                    raise ValueError("Chunk size too large")
                 
+                # Read audio data
+                data = b''
+                deadline = time.time() + 1.0  # 1 second timeout for complete chunk
+                read_start = time.time()
+                total_reads = 0
+                total_blocks = 0
+                
+                while len(data) < chunk_size and time.time() < deadline:
+                    remaining = chunk_size - len(data)
+                    try:
+                        chunk = self.socket.recv(min(remaining, self.buffer_size))
+                        if not chunk:
+                            logger.warning("Connection closed during data read")
+                            raise ConnectionError("Connection closed during data read")
+                        data += chunk
+                        total_reads += 1
+                    except socket.error as e:
+                        if e.errno == errno.EAGAIN:
+                            total_blocks += 1
+                            time.sleep(0.001)
+                            continue
+                        raise
+                
+                read_time = time.time() - read_start
+                if len(data) == chunk_size:
+                    # Validate data size is multiple of sample size
+                    if len(data) % self.bytes_per_sample != 0:
+                        logger.error(f"Data size {len(data)} not multiple of sample size {self.bytes_per_sample}")
+                        raise ValueError("Invalid data size")
+                        
+                    # Only log details periodically to avoid spam
+                    if total_reads > 100 or read_time > 0.1:
+                        logger.debug(
+                            f"Read {len(data)/1024:.1f}KB in {read_time*1000:.0f}ms "
+                            f"({total_reads} reads, {total_blocks} blocks)"
+                        )
+                    self._process_audio(data)
+                    self.last_data_time = time.time()
+                else:
+                    logger.warning(
+                        f"Incomplete chunk: {len(data)/1024:.1f}KB/{chunk_size/1024:.1f}KB "
+                        f"after {read_time*1000:.0f}ms"
+                    )
+                    raise ConnectionError("Incomplete chunk read")
+                    
             except Exception as e:
                 logger.error(f"Error in capture loop: {e}", exc_info=True)
                 self._cleanup()
