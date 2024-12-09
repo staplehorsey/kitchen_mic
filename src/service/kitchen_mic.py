@@ -44,21 +44,38 @@ class KitchenMicService:
         """Configure logging based on service settings."""
         log_config = self.config['service']
         log_file = os.path.expanduser(log_config.get('log_file', ''))
+        log_level = log_config.get('log_level', 'INFO')
+        
+        # Set root logger level first
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.DEBUG if log_level == 'DEBUG' else logging.INFO)
         
         handlers = []
         if log_file:
             log_dir = os.path.dirname(log_file)
             os.makedirs(log_dir, exist_ok=True)
-            handlers.append(logging.FileHandler(log_file))
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setLevel(getattr(logging, log_level))
+            handlers.append(file_handler)
         
-        # Always add console handler for systemd journal
-        handlers.append(logging.StreamHandler())
+        # Always add console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(getattr(logging, log_level))
+        handlers.append(console_handler)
         
-        logging.basicConfig(
-            level=getattr(logging, log_config['log_level']),
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=handlers
+        # Configure format
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
+        
+        # Apply configuration to root logger
+        for handler in handlers:
+            handler.setFormatter(formatter)
+            root_logger.addHandler(handler)
+            
+        # Remove any existing handlers to avoid duplicates
+        for handler in root_logger.handlers[:-len(handlers)]:
+            root_logger.removeHandler(handler)
 
     def initialize_components(self) -> None:
         """Initialize all service components."""
