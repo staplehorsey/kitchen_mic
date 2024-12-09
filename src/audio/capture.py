@@ -160,13 +160,13 @@ class AudioCapture:
             )
             
             # Visualize audio level if enabled
-            if self.visualize:
-                now = time.time()
-                if now - self.last_level_time >= self.level_interval:
-                    viz = visualize_audio_level(audio_data, width=self.visualization_width)
-                    print(f"\r{' ' * len(self.last_level)}\r{viz}", end="", flush=True)
-                    self.last_level = viz
-                    self.last_level_time = now
+           #if self.visualize:
+           #    now = time.time()
+           #    if now - self.last_level_time >= self.level_interval:
+           #        viz = visualize_audio_level(audio_data, width=self.visualization_width)
+           #        print(f"\r{' ' * len(self.last_level)}\r{viz}", end="", flush=True)
+           #        self.last_level = viz
+           #        self.last_level_time = now
             
             # Notify callbacks
             with self._lock:
