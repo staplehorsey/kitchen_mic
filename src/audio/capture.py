@@ -125,64 +125,21 @@ class AudioCapture:
     
     def _find_microphone(self) -> Optional[int]:
         """Find Blue Yeti or default microphone."""
-        # Try to find Blue Yeti by checking all devices
+        # Try to find Blue Yeti by name
         for i in range(self.pyaudio.get_device_count()):
             dev_info = self.pyaudio.get_device_info_by_index(i)
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f"Found audio device {i}: {dev_info['name']}")
             
-            # Look for Blue Yeti in name and make sure it's an ALSA device
-            if "Blue" in dev_info["name"] and "hw:" in dev_info["name"]:
-                # Extract ALSA card and device numbers
-                try:
-                    hw_str = dev_info["name"].split("hw:")[1].split(")")[0]
-                    card, device = map(int, hw_str.split(","))
-                    logger.info(f"Found Blue Yeti on card {card}")
-                    
-                    # Test if device is actually available for capture
-                    test_stream = self.pyaudio.open(
-                        format=self.format,
-                        channels=1,
-                        rate=self.original_rate,
-                        input=True,
-                        input_device_index=i,
-                        frames_per_buffer=1024,
-                        start=False
-                    )
-                    test_stream.close()
-                    return i
-                except Exception as e:
-                    logger.debug(f"Failed to test Blue Yeti device: {e}")
-                    continue
+            # Look for Blue Yeti in name
+            if "Blue" in dev_info["name"]:
+                logger.info(f"Found Blue Yeti microphone: {dev_info['name']}")
+                return i
         
         # Fall back to default input device
-        try:
-            default_input = self.pyaudio.get_default_input_device_info()
-            logger.info(f"Using default microphone: {default_input['name']}")
-            return default_input["index"]
-        except Exception as e:
-            logger.debug(f"Failed to get default input device: {e}")
-            
-            # Last resort: try to find any working input device
-            for i in range(self.pyaudio.get_device_count()):
-                dev_info = self.pyaudio.get_device_info_by_index(i)
-                try:
-                    test_stream = self.pyaudio.open(
-                        format=self.format,
-                        channels=1,
-                        rate=self.original_rate,
-                        input=True,
-                        input_device_index=i,
-                        frames_per_buffer=1024,
-                        start=False
-                    )
-                    test_stream.close()
-                    logger.info(f"Using microphone: {dev_info['name']}")
-                    return i
-                except:
-                    continue
-            
-            raise ValueError("No working microphone found")
+        default_input = self.pyaudio.get_default_input_device_info()
+        logger.info(f"Using default microphone: {default_input['name']}")
+        return default_input["index"]
     
     def _audio_callback(self, in_data, frame_count, time_info, status):
         """Handle incoming audio data from PyAudio."""
@@ -297,7 +254,7 @@ class AudioCapture:
                 logger.debug(f"  Index: {self.device_index}")
                 logger.debug(f"  Sample rate: {info['defaultSampleRate']}")
             
-            # Use 1 channel since we've tested it works
+            # Use 1 channel
             self.channels = 1
             
             # Open audio stream with larger buffer for stability
