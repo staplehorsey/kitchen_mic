@@ -89,19 +89,13 @@ class ConversationOrchestrator:
             if not trans_msg or not trans_msg.transcription:
                 logger.error(f"Transcription failed for {conversation.id}")
                 return
-            # Truncate transcription text for logging
-            text = trans_msg.transcription
-            if len(text) > 100:
-                text = text[:100] + "..."
-            logger.info(f"Transcription complete: {text}")
+
+            logger.info(f"Transcription complete")
             
             # Step 2: Summary
             logger.info("Generating summary...")
             summary_msg = self.summary.process_conversation(trans_msg)
-            if not summary_msg or not summary_msg.summary:
-                logger.error(f"Summary failed for {conversation.id}")
-                return
-            logger.info(f"Summary complete: {summary_msg.summary[:100]}...")
+            logger.info(f"Summary complete")
             
             # Step 3: Save everything
             logger.info("Saving conversation data...")
